@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #07101f;
+}
+
+.studio-shell {
+  height: 100dvh;
+  width: 100%;
+}
+
+.studio-toolbar {
+  align-items: center;
+  background: #09152b;
+  border-bottom: 1px solid #293b60;
+  color: #edf4ff;
+  display: flex;
+  gap: 14px;
+  height: 46px;
+  padding: 0 14px;
+}
+
+.studio-toolbar-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.studio-toolbar-status {
+  color: #9caecc;
+  font-size: 11px;
+  margin-right: auto;
+}
+
+.studio-sample-button {
+  background: #315eb4;
+  border: 1px solid #4f77c8;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.studio-sample-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.studio-frame {
+  display: block;
+  height: calc(100% - 47px);
+  width: 100%;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .studio-toolbar-title {
+    display: none;
+  }
+
+  .studio-toolbar-status {
+    font-size: 10px;
+  }
+}
