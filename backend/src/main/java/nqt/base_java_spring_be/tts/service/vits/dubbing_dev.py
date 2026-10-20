@@ -51,7 +51,7 @@ WHISPER_MODEL_SIZE = "large-v3"
 MAX_SEGMENTS_PER_FILE = 300  # Số câu tối đa mỗi file SRT con
 
 # 1.3. Cấu hình Dịch thuật (Gemini & Ollama)
-GEMINI_API_KEY = "AIzaSyCXnrlISw4K86DwSR355LHJcuaiRHEd5Cs"  # ⚠️ Lưu ý: Nên bảo mật Key này
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 TRANS_BATCH_SIZE = 20           # Số dòng dịch mỗi lần gửi
 TRANS_DELAY_SECONDS_GEMINI = 4  # Độ trễ tránh Rate Limit Gemini
 TRANS_DELAY_SECONDS_OLLAMA = 1  # Độ trễ cho Ollama (nhẹ hơn)

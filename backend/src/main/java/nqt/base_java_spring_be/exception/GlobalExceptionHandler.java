@@ -3,6 +3,7 @@ package nqt.base_java_spring_be.exception;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import nqt.base_java_spring_be.dto.CustomResponse;
+import nqt.base_java_spring_be.veo.VeoProviderException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -104,6 +105,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<CustomResponse<Void>> handleBadRequest(BadRequestException ex) {
         CustomResponse<Void> body = CustomResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(VeoProviderException.class)
+    public ResponseEntity<CustomResponse<Void>> handleVeoProvider(VeoProviderException ex) {
+        CustomResponse<Void> body = CustomResponse.error(ex.getMessage(), ex.getStatus());
+        return ResponseEntity.status(ex.getStatus()).body(body);
     }
 
     // 500: lỗi không xác định
