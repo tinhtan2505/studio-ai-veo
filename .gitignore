@@ -1,0 +1,91 @@
+# -----------------------------------------------------------------------------
+# Canonical ignore rules for the studio-ai-veo root repository.
+# The apps directory is a separate nested Git repository and keeps its own
+# apps/.gitignore for frontend-only rules.
+# -----------------------------------------------------------------------------
+
+# IntelliJ IDEA / JetBrains
+/.idea/shelf/
+/.idea/workspace.xml
+/.idea/httpRequests/
+/.idea/dataSources/
+/.idea/dataSources.local.xml
+**/.idea/
+*.iws
+*.iml
+*.ipr
+
+# Eclipse / Spring Tool Suite
+**/.apt_generated/
+**/.classpath
+**/.factorypath
+**/.project
+**/.settings/
+**/.springBeans
+**/.sts4-cache/
+
+# NetBeans
+**/nbproject/private/
+**/nbbuild/
+**/nbdist/
+**/.nb-gradle/
+
+# Visual Studio Code
+**/.vscode/
+
+# Frontend / Next.js (also mirrored by the nested apps repository)
+/apps/node_modules/
+/apps/.pnp/
+/apps/.pnp.*
+/apps/.yarn/
+/apps/coverage/
+/apps/.next/
+/apps/out/
+/apps/build/
+/apps/.vercel/
+/apps/.env*
+/apps/*.tsbuildinfo
+/apps/next-env.d.ts
+
+# Backend / Gradle / Java build output
+/backend/HELP.md
+/backend/.gradle/
+/backend/build/
+/backend/bin/
+/backend/out/
+/backend/nbproject/private/
+/backend/nbbuild/
+/backend/dist/
+/backend/nbdist/
+!/backend/gradle/wrapper/gradle-wrapper.jar
+!/backend/src/main/**/build/
+!/backend/src/test/**/build/
+!/backend/src/main/**/bin/
+!/backend/src/test/**/bin/
+!/backend/src/main/**/out/
+!/backend/src/test/**/out/
+
+# Backend Python services
+/backend/vits-service/venv/
+/backend/vits-service/.venv/
+/backend/venv/
+/backend/.cache/
+/backend/**/__pycache__/
+/backend/**/*.py[cod]
+/backend/src/main/java/nqt/base_java_spring_be/tts/python/config.py
+/backend/src/main/java/nqt/base_java_spring_be/tts/python/requirements.txt
+
+# Environment / local configuration
+.env
+.env.*
+!.env.example
+
+# Logs and OS files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+*.pem
