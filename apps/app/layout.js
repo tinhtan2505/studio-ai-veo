@@ -1,16 +1,16 @@
-import type { Metadata } from "next";
 import "./globals.css";
+import "./studio.css";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "Studio AI · VEO Production Workspace",
   description:
     "Không gian sản xuất AI cho quy trình kịch bản, cảnh quay, phân đoạn và VEO.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }) {
   return (
     <html lang="vi">
-      <body suppressHydrationWarning>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

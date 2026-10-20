@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Studio AI VEO Frontend
 
-## Getting Started
+Frontend Next.js App Router dùng JavaScript và React component, chạy tại
+`http://localhost:6660`.
 
-First, run the development server:
+## Chạy local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:6660](http://localhost:6660) with your browser to see the result.
+Backend VEO mặc định được proxy tới `http://localhost:6661`. Có thể đổi bằng
+biến môi trường `STUDIO_BACKEND_URL`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Cấu trúc chính
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `app/page.js`: route trang chủ.
+- `app/_components/`: các component giao diện theo từng khu vực nghiệp vụ.
+- `app/_data/reference-content.js`: tài liệu vận hành tĩnh.
+- `app/studio.css`: giao diện responsive của workspace.
+- `public/studio-runtime.js`: parser và luồng nghiệp vụ Phase 5 / VEO.
+- `public/samples/`: gói dữ liệu mẫu dùng để kiểm thử nhanh.
 
-## Learn More
+## Kiểm tra
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npm run build
+```
