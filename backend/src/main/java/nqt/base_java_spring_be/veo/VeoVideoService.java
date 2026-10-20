@@ -34,7 +34,7 @@ public class VeoVideoService {
     private final HttpClient httpClient;
     private final Map<UUID, Job> jobs = new ConcurrentHashMap<>();
 
-    @Value("${GEMINI_API_KEY:}")
+    @Value("${GEMINI_API_KEY:AIzaSyB6tyCUKMgY7AFTjQTElnug2kBjC-MqIs4}")
     private String apiKey;
 
     @Value("${GEMINI_API_BASE_URL:https://generativelanguage.googleapis.com/v1beta}")

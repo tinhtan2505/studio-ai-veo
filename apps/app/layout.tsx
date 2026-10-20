@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Studio AI Prompt System",
+  title: "Studio AI · VEO Production Workspace",
   description:
-    "Studio AI production prompt system for screenplay, shot and segment workflows.",
+    "Không gian sản xuất AI cho quy trình kịch bản, cảnh quay, phân đoạn và VEO.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

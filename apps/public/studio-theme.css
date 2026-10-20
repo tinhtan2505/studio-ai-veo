@@ -1,0 +1,821 @@
+:root {
+  --bg: #080d18;
+  --panel: #0f1728;
+  --panel2: #151f35;
+  --panel3: #0a1220;
+  --line: rgba(148, 163, 184, 0.16);
+  --text: #eef3fb;
+  --muted: #8e9cb2;
+  --accent: #818cf8;
+  --accent2: #4fd1c5;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #fb7185;
+  --info: #93c5fd;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+  --radius: 16px;
+  color-scheme: dark;
+}
+
+html {
+  scrollbar-color: rgba(129, 140, 248, 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+body {
+  background:
+    radial-gradient(circle at 10% -12%, rgba(99, 102, 241, 0.16), transparent 27%),
+    radial-gradient(circle at 92% 2%, rgba(45, 212, 191, 0.08), transparent 25%),
+    var(--bg);
+}
+
+body::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 36px 36px;
+  content: "";
+  pointer-events: none;
+}
+
+.app {
+  width: min(1660px, calc(100% - 32px));
+  padding: 22px 0 56px;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+  margin-bottom: 14px;
+  border: 1px solid rgba(129, 140, 248, 0.2);
+  border-radius: 18px;
+  background:
+    linear-gradient(105deg, rgba(99, 102, 241, 0.14), transparent 55%),
+    rgba(15, 23, 40, 0.78);
+  box-shadow: 0 14px 45px rgba(0, 0, 0, 0.2);
+  padding: 18px 20px;
+}
+
+.hero::after {
+  position: absolute;
+  top: -70px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  background: rgba(79, 209, 197, 0.09);
+  filter: blur(4px);
+  content: "";
+  pointer-events: none;
+}
+
+.hero h1 {
+  margin-bottom: 6px;
+  font-size: clamp(22px, 3vw, 32px);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.hero p {
+  max-width: 1050px;
+  color: #9caac0;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.badge,
+.status,
+.chip,
+.shot-select {
+  border-color: rgba(129, 140, 248, 0.22);
+  background: rgba(129, 140, 248, 0.08);
+}
+
+.badge {
+  z-index: 1;
+  color: #9ee7df;
+  font-weight: 750;
+}
+
+.card,
+.step,
+.shot,
+.phase-card,
+.metric,
+.statebox,
+.shot-scene,
+.shot-voice,
+.source-asset,
+.veo-config {
+  border-color: var(--line);
+  background: rgba(15, 23, 40, 0.88);
+  box-shadow: none;
+}
+
+.card {
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.16);
+}
+
+.shots {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+.shot {
+  overflow: hidden;
+  width: 100%;
+  padding: 0;
+}
+
+.shot-split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(410px, 0.85fr);
+  min-width: 0;
+}
+
+.shot-current {
+  min-width: 0;
+  padding: 16px;
+}
+
+.veo-api-panel {
+  min-width: 0;
+  border-left: 1px solid rgba(129, 140, 248, 0.18);
+  background:
+    radial-gradient(circle at 100% 0, rgba(99, 102, 241, 0.13), transparent 38%),
+    rgba(7, 12, 23, 0.76);
+  padding: 16px;
+}
+
+.veo-panel-head,
+.veo-submit-row,
+.veo-result-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.veo-panel-head h4 {
+  margin: 3px 0 0;
+  color: #f7f8ff;
+  font-size: 15px;
+  letter-spacing: -0.015em;
+}
+
+.veo-eyebrow {
+  color: #929cff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.veo-mode {
+  border: 1px solid rgba(79, 209, 197, 0.26);
+  border-radius: 999px;
+  background: rgba(79, 209, 197, 0.08);
+  padding: 5px 8px;
+  color: #8ce9df;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.veo-frame-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  margin-top: 13px;
+}
+
+.veo-frame-slot {
+  position: relative;
+  display: grid;
+  min-height: 82px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #9aa8ba;
+  font-size: 10px;
+  font-weight: 750;
+  text-align: center;
+  cursor: pointer;
+}
+
+.veo-frame-slot:hover {
+  border-color: rgba(129, 140, 248, 0.72);
+  color: #dbe2ff;
+}
+
+.veo-frame-slot input {
+  display: none;
+}
+
+.veo-frame-slot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.veo-frame-slot.has-image::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 52%;
+  background: linear-gradient(transparent, rgba(2, 6, 17, 0.9));
+  content: "";
+}
+
+.veo-frame-slot.has-image span {
+  z-index: 1;
+  align-self: end;
+  padding-bottom: 8px;
+  color: white;
+}
+
+.veo-frame-slot.end-frame {
+  cursor: default;
+  border-style: solid;
+  opacity: 0.72;
+}
+
+.veo-frame-icon {
+  color: #a7afff;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.veo-frame-swap {
+  color: #a5afc1;
+  font-size: 16px;
+}
+
+.veo-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.veo-field > span,
+.veo-option-row > span {
+  color: #9aa8bb;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.veo-field textarea,
+.veo-field select {
+  width: 100%;
+  outline: none;
+  border: 1px solid rgba(148, 163, 184, 0.19);
+  border-radius: 10px;
+  background: rgba(3, 8, 17, 0.78);
+  color: #e8eef9;
+}
+
+.veo-field textarea {
+  min-height: 128px;
+  resize: vertical;
+  padding: 10px 11px;
+  font: 10px/1.52 "SFMono-Regular", Consolas, monospace;
+}
+
+.veo-field select {
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.veo-field textarea:focus,
+.veo-field select:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+}
+
+.veo-prompt-tools {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 5px;
+  color: #748198;
+  font-size: 9px;
+}
+
+.veo-text-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: #9ca5ff;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.veo-text-button:hover {
+  color: #c9cdff;
+}
+
+.veo-control-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(170px, 1fr);
+  gap: 10px;
+}
+
+.veo-option-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.veo-segmented {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 9px;
+  background: rgba(2, 6, 15, 0.68);
+  padding: 3px;
+}
+
+.veo-segmented button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  padding: 4px 7px;
+  color: #8592a6;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.veo-segmented button[aria-pressed="true"] {
+  background: rgba(129, 140, 248, 0.2);
+  color: #f3f4ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+}
+
+.veo-segmented button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.veo-hint {
+  margin: 6px 0 0 97px;
+  color: #c99e4f;
+  font-size: 9px;
+}
+
+.veo-submit-row {
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+.veo-api-status {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+  color: #aeb9c9;
+}
+
+.veo-api-status > span {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #657186;
+}
+
+.veo-api-status.working > span {
+  border: 2px solid rgba(129, 140, 248, 0.25);
+  border-top-color: #929cff;
+  background: transparent;
+  animation: veo-spin 0.8s linear infinite;
+}
+
+.veo-api-status.success > span {
+  background: #4ade80;
+  box-shadow: 0 0 9px rgba(74, 222, 128, 0.6);
+}
+
+.veo-api-status.failed > span {
+  background: #fb7185;
+}
+
+.veo-api-status strong,
+.veo-api-status small {
+  display: block;
+}
+
+.veo-api-status strong {
+  color: #dce4f2;
+  font-size: 10px;
+}
+
+.veo-api-status small {
+  max-width: 270px;
+  overflow-wrap: anywhere;
+  margin-top: 2px;
+  color: #748198;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.veo-api-status.failed small {
+  color: #fda4af;
+}
+
+.veo-generate {
+  display: inline-flex;
+  min-width: 126px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(139, 145, 255, 0.62);
+  border-radius: 11px;
+  background: linear-gradient(135deg, #6266ea, #7955d1);
+  padding: 10px 11px 10px 14px;
+  color: white;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.24);
+}
+
+.veo-generate b {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.veo-generate:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.veo-generate:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+
+.veo-result {
+  overflow: hidden;
+  margin-top: 13px;
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  border-radius: 12px;
+  background: rgba(6, 17, 24, 0.8);
+}
+
+.veo-result video {
+  display: block;
+  width: 100%;
+  max-height: 290px;
+  background: #02040a;
+}
+
+.veo-result-actions {
+  padding: 9px;
+  color: #8eeaad;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.veo-result-actions .btn {
+  padding: 7px 9px;
+  color: white;
+  text-decoration: none;
+}
+
+@keyframes veo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.upload {
+  padding: 12px;
+}
+
+.dropzone {
+  min-height: 112px;
+  border-color: rgba(129, 140, 248, 0.42);
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.09), rgba(45, 212, 191, 0.035)),
+    rgba(8, 13, 24, 0.58);
+}
+
+.dropzone:hover,
+.dropzone.dragging {
+  border-color: #8b91ff;
+  background: rgba(99, 102, 241, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.12);
+}
+
+.drop-title {
+  color: #f5f7ff;
+  font-size: 14px;
+}
+
+.nav {
+  top: 8px;
+  gap: 5px;
+  margin: 12px 0 14px;
+  border-color: rgba(148, 163, 184, 0.13);
+  background: rgba(8, 13, 24, 0.82);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.nav button {
+  border-color: transparent;
+  background: transparent;
+  padding: 9px 12px;
+  color: #8998ad;
+  transition: 0.16s ease;
+}
+
+.nav button:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: #e8edf7;
+}
+
+.nav button.active {
+  border-color: rgba(129, 140, 248, 0.28);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.26), rgba(119, 88, 216, 0.18));
+  color: #f7f8ff;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.12);
+}
+
+.metric {
+  position: relative;
+  overflow: hidden;
+  padding: 14px;
+}
+
+.metric::before {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  width: 32px;
+  height: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  content: "";
+}
+
+.metric .k {
+  color: #7f8da3;
+  font-weight: 700;
+}
+
+.metric .v {
+  color: #f6f8fc;
+  font-size: 22px;
+}
+
+.btn,
+.input,
+.select,
+.textarea {
+  border-radius: 10px;
+  transition: 0.16s ease;
+}
+
+.btn {
+  border-color: rgba(148, 163, 184, 0.19);
+  background: rgba(30, 41, 59, 0.8);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.12);
+}
+
+.btn:hover:not(:disabled) {
+  border-color: rgba(129, 140, 248, 0.66);
+  background: rgba(99, 102, 241, 0.14);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.btn.primary {
+  border-color: rgba(139, 145, 255, 0.62);
+  background: linear-gradient(135deg, #6266ea, #7255c9);
+}
+
+.btn.secondary {
+  border-color: rgba(79, 209, 197, 0.42);
+  background: linear-gradient(135deg, #256d66, #20554f);
+}
+
+.btn.warn {
+  border-color: rgba(251, 191, 36, 0.38);
+  background: rgba(120, 83, 19, 0.7);
+}
+
+.btn.danger {
+  border-color: rgba(251, 113, 133, 0.36);
+  background: rgba(112, 38, 52, 0.72);
+}
+
+.input,
+.select,
+.textarea {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(5, 10, 19, 0.72);
+}
+
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: rgba(129, 140, 248, 0.4);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
+}
+
+.notice {
+  border-color: rgba(96, 165, 250, 0.24);
+  background: rgba(59, 130, 246, 0.075);
+}
+
+.notice.warn {
+  border-color: rgba(251, 191, 36, 0.24);
+  background: rgba(251, 191, 36, 0.065);
+}
+
+.notice.bad,
+.errorbox.visible {
+  border-color: rgba(251, 113, 133, 0.3);
+  background: rgba(251, 113, 133, 0.07);
+}
+
+.seg-item {
+  border-color: rgba(148, 163, 184, 0.14);
+  background: rgba(10, 18, 32, 0.72);
+  transition: 0.16s ease;
+}
+
+.seg-item:hover {
+  border-color: rgba(129, 140, 248, 0.5);
+  background: rgba(99, 102, 241, 0.07);
+  transform: translateX(2px);
+}
+
+.seg-item.active {
+  border-color: #818cf8;
+  background: rgba(99, 102, 241, 0.14);
+  box-shadow: inset 3px 0 0 #818cf8;
+}
+
+.progress {
+  border-color: rgba(148, 163, 184, 0.13);
+  background: #070c16;
+}
+
+.progress > div {
+  background: linear-gradient(90deg, #6366f1, #4fd1c5);
+}
+
+.copy-modal {
+  background: rgba(3, 7, 18, 0.82);
+  backdrop-filter: blur(14px);
+}
+
+.copy-dialog {
+  border-color: rgba(129, 140, 248, 0.22);
+  background: #101827;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+}
+
+.copy-toast {
+  border-color: rgba(74, 222, 128, 0.38);
+  background: rgba(10, 55, 39, 0.96);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.4);
+}
+
+.authority,
+.preview,
+.reference-code,
+.shot .clean {
+  border-color: rgba(148, 163, 184, 0.14);
+  background: rgba(4, 9, 17, 0.72);
+}
+
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 2px;
+}
+
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(129, 140, 248, 0.34);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(129, 140, 248, 0.52);
+  background-clip: padding-box;
+}
+
+@media (max-width: 1120px) {
+  .shot-split-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .veo-api-panel {
+    border-top: 1px solid rgba(129, 140, 248, 0.18);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .app {
+    width: calc(100% - 18px);
+    padding-top: 10px;
+  }
+
+  .hero {
+    padding: 15px;
+  }
+
+  .hero p {
+    font-size: 11px;
+  }
+
+  .nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav button {
+    min-width: 0;
+    padding: 9px 8px;
+    font-size: 11px;
+  }
+
+  .shot-current,
+  .veo-api-panel {
+    padding: 12px;
+  }
+
+  .veo-control-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .veo-option-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .veo-hint {
+    margin-left: 0;
+  }
+
+  .veo-submit-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .veo-generate {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

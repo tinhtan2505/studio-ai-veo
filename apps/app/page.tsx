@@ -1,68 +1,32 @@
-"use client";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import StudioWorkspace from "./studio-workspace";
 
-import { useRef, useState } from "react";
+async function DynamicStudioWorkspace() {
+  await connection();
+  return <StudioWorkspace />;
+}
 
-const SAMPLE_BUNDLE =
-  "/samples/BAY_MANH_NHAN_TAM_EP04_PHASE5_ALL_SEG_RECOMPILED_V9.txt";
+function StudioFallback() {
+  return (
+    <main className="grid h-dvh place-items-center bg-[#070b14] text-slate-100">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <div className="grid size-14 animate-pulse place-items-center rounded-2xl border border-indigo-400/20 bg-indigo-400/10 text-xl font-bold text-indigo-300">
+          AI
+        </div>
+        <div>
+          <p className="text-sm font-semibold">Đang khởi tạo Studio AI</p>
+          <p className="mt-1 text-xs text-slate-500">Chuẩn bị không gian sản xuất…</p>
+        </div>
+      </div>
+    </main>
+  );
+}
 
 export default function Home() {
-  const frameRef = useRef<HTMLIFrameElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isReady, setIsReady] = useState(false);
-
-  async function loadSampleBundle() {
-    const frameDocument = frameRef.current?.contentDocument;
-    const fileInput = frameDocument?.querySelector<HTMLInputElement>("#fileInput");
-
-    if (!fileInput) {
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(SAMPLE_BUNDLE);
-      if (!response.ok) {
-        throw new Error(`Không tải được gói mẫu (${response.status})`);
-      }
-
-      const file = new File(
-        [await response.text()],
-        "BAY_MANH_NHAN_TAM_EP04_PHASE5_ALL_SEG_RECOMPILED_V9.txt",
-        { type: "text/plain" },
-      );
-      const transfer = new DataTransfer();
-      transfer.items.add(file);
-      fileInput.files = transfer.files;
-      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   return (
-    <main className="studio-shell">
-      <div className="studio-toolbar">
-        <span className="studio-toolbar-title">Studio AI · VEO production workspace</span>
-        <span className="studio-toolbar-status">
-          {isReady ? "Studio đã sẵn sàng" : "Đang khởi tạo Studio"}
-        </span>
-        <button
-          className="studio-sample-button"
-          type="button"
-          onClick={loadSampleBundle}
-          disabled={!isReady || isLoading}
-        >
-          {isLoading ? "Đang nạp gói…" : "Nạp gói Phase 5 mẫu"}
-        </button>
-      </div>
-      <iframe
-        ref={frameRef}
-        className="studio-frame"
-        src="/studio-ai-prompt-system.html"
-        title="Studio AI Prompt System"
-        allow="clipboard-read; clipboard-write"
-        onLoad={() => setIsReady(true)}
-      />
-    </main>
+    <Suspense fallback={<StudioFallback />}>
+      <DynamicStudioWorkspace />
+    </Suspense>
   );
 }
