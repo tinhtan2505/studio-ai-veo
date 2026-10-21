@@ -60,6 +60,7 @@
 /backend/nbbuild/
 /backend/dist/
 /backend/nbdist/
+/backend/src/main/resources/application.properties
 !/backend/gradle/wrapper/gradle-wrapper.jar
 !/backend/src/main/**/build/
 !/backend/src/test/**/build/
