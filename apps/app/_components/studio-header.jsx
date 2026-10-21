@@ -8,7 +8,7 @@ export default function StudioHeader({
   return (
     <header className="hero">
       <div className="hero-copy">
-        <div className="eyebrow">VEO PRODUCTION WORKSPACE</div>
+        <div className="eyebrow">GEMINI OMNI PRODUCTION WORKSPACE</div>
         <h1>
           Hệ thống nhắc lệnh Studio AI{" "}
           <span className="accent-title">· 7 giai đoạn</span>

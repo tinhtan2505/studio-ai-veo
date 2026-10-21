@@ -5,7 +5,7 @@ export default function UploadCard() {
         <strong>Quy trình Studio AI chạy trực tiếp bằng Next.js</strong>
         <br />
         Đủ 7 prompt nguyên văn, parser gói Phase 5 và luồng Source Image →
-        VEO. Schema: <code>STUDIO_AI_PROMPT_SYSTEM_DIRECT_SCREENPLAY</code>.
+        Gemini Omni. Schema: <code>STUDIO_AI_PROMPT_SYSTEM_DIRECT_SCREENPLAY</code>.
       </div>
 
       <section className="card upload">

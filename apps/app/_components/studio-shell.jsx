@@ -19,6 +19,7 @@ const SAMPLE_BUNDLE =
 
 export default function StudioShell() {
   const [ready, setReady] = useState(false);
+  const [coreReady, setCoreReady] = useState(false);
   const [sampleLoading, setSampleLoading] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -116,13 +117,23 @@ export default function StudioShell() {
       </main>
       <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
       <Script
-        id="studio-ai-runtime"
-        src="/studio-runtime.js"
+        id="studio-omni-core"
+        src="/omni-core.js"
         strategy="afterInteractive"
-        onLoad={markReady}
-        onReady={markReady}
+        onLoad={() => setCoreReady(Boolean(window.StudioOmniCore))}
+        onReady={() => setCoreReady(Boolean(window.StudioOmniCore))}
         onError={() => setReady(false)}
       />
+      {coreReady ? (
+        <Script
+          id="studio-ai-runtime"
+          src="/studio-runtime.js"
+          strategy="afterInteractive"
+          onLoad={markReady}
+          onReady={markReady}
+          onError={() => setReady(false)}
+        />
+      ) : null}
     </>
   );
 }

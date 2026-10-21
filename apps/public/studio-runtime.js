@@ -13,7 +13,7 @@ const ALL_SECTION_NAMES=["continuity_in_state_ref", "intended_terminal_state", "
 const DEFAULT_FRAME_TASK=`- Sử dụng đúng ảnh tham chiếu thực sự được đính kèm và đúng thẩm quyền hiện hình của shot.
 - Tạo đúng 01 ảnh tĩnh sắc nét làm first frame; không dựng trước hành động hoặc trạng thái kết thúc.
 - Giữ chính xác nhận diện, tuổi, trang phục, đạo cụ, địa lý, trục máy và trạng thái khung nguồn.
-- Xuất PNG hoặc JPEG riêng cho đúng shot_id và đúng tỷ lệ đã chọn ở Cấu hình Veo.`;
+- Xuất PNG hoặc JPEG riêng cho đúng shot_id và đúng tỷ lệ đã chọn ở Cấu hình Omni.`;
 const DEFAULT_VIDEO_TASK=`- Ảnh Source Image đã gắn là first frame có thẩm quyền; không mô tả lại hoặc tái thiết kế chủ thể, bối cảnh và ánh sáng đã có trong ảnh.
 - Chỉ thực hiện chuyển động chủ thể, chuyển động máy, thay đổi môi trường, trạng thái kết thúc và audio được liệt kê trong prompt.
 - Một shot liên tục; không montage, cut ẩn, loop, reverse, rewind hoặc quay lại tư thế/vị trí/frame đầu.
@@ -308,16 +308,8 @@ function sourceImageDiagnostics(bundle){const data=bundle.shots.map(framePromptD
 function diagnostics(bundle){const out=sourceImageDiagnostics(bundle),add=(level,title,detail)=>out.push({level,title,detail}),shots=bundle.shots,segs=bundle.segments,m=bundle.meta,ids=shots.map(s=>s.shotId),uniq=new Set(ids);const schemaRecognition=recognizeBundleSchema(bundle);add(schemaRecognition.supported?(schemaRecognition.mode==="DECLARED"?"pass":"warn"):"error","Nhận diện gói Phase 5",schemaRecognition.detail);add(uniq.size===ids.length?"pass":"error","ID cảnh quay xuất hiện đúng một lần",`${uniq.size}/${ids.length} unique shot_id.`);const idx=shots.map(s=>Number(s.masterEditOrderIndex)),idxValid=idx.every(Number.isFinite)&&new Set(idx).size===idx.length,contiguous=idxValid&&idx.slice().sort((a,b)=>a-b).every((v,i,a)=>i===0||v===a[i-1]+1);add(idxValid&&contiguous?"pass":"error","Tính toàn vẹn MASTER_EDIT_ORDER",idxValid?`Index ${Math.min(...idx)}–${Math.max(...idx)} · contiguous=${contiguous}`:"Thiếu/trùng master_edit_order_index.");const coverage=segs.flatMap(s=>s.shotIds),counts=new Map();coverage.forEach(id=>counts.set(id,(counts.get(id)||0)+1));const missing=ids.filter(id=>!counts.has(id)),dup=[...counts].filter(([,c])=>c!==1).map(([id])=>id),extra=coverage.filter(id=>!uniq.has(id));add(!missing.length&&!dup.length&&!extra.length&&coverage.length===ids.length?"pass":"error","Bao phủ phân đoạn đúng một lần",`coverage=${coverage.length}/${ids.length}; missing=${missing.length}; duplicate=${dup.length}; extra=${extra.length}`);const so=segs.map(s=>Number(s.segmentOrderIndex)),segOrderOk=so.length&&so.every(Number.isFinite)&&new Set(so).size===so.length&&so.slice().sort((a,b)=>a-b).every((v,i,a)=>i===0||v===a[i-1]+1);add(segOrderOk?"pass":"error","segment_order_index",`${segs.length} segment · ${segOrderOk?"contiguous":"có gap/trùng"}`);let boundaryErrors=0;for(let i=0;i<segs.length-1;i++){const a=segs[i],b=segs[i+1],aLast=a.shotIds.at(-1),bFirst=b.shotIds[0];if(String(a.boundaryNextShotId).toUpperCase()!==String(bFirst).toUpperCase())boundaryErrors++;if(String(b.boundaryPreviousShotId).toUpperCase()!==String(aLast).toUpperCase())boundaryErrors++}add(boundaryErrors===0?"pass":"error","Liền kề qua biên phân đoạn",boundaryErrors?`${boundaryErrors} mismatch boundary previous/next.`:"Boundary previous/next khớp shot ở hai phía.");const badDuration=shots.filter(s=>{const d=numericField(s.targetDurationSeconds);return !Number.isFinite(d)||d<=0||d>8.0}),over=shots.filter(s=>{const d=numericField(s.targetDurationSeconds);return Number.isFinite(d)&&d>8.0}),missingDur=shots.filter(s=>{const d=numericField(s.targetDurationSeconds);return !Number.isFinite(d)||d<=0});add(!badDuration.length?"pass":"error","Thời lượng tuyệt đối mỗi cảnh quay ≤ 8,0 giây",badDuration.length?`CRITICAL: ${badDuration.length} shot không hợp lệ; over_8s=${over.length}; missing_or_nonpositive=${missingDur.length}. NO_OVERRIDE · NO_EXCEPTION · NO_AUTO_EXTENSION.`:`${shots.length}/${shots.length} shot có target_duration_seconds >0 và ≤8.0. NO_OVERRIDE.`);const declared=numericField(m.maxShotDurationSeconds);add(!Number.isFinite(declared)||declared<=8.0?"pass":"error","Chính sách thời lượng không được nâng trần",Number.isFinite(declared)?`declared max=${declared}s; absolute system cap=8.0s.`:"Không thấy scalar max riêng; absolute system cap vẫn cố định 8.0s.");const large=segs.filter(s=>s.shotIds.length>8),unusual=segs.filter(s=>s.shotIds.length>6&&s.shotIds.length<=8),single=segs.filter(s=>s.shotIds.length===1);add(large.length?"error":unusual.length||single.length?"warn":"pass","Chính sách kích thước phân đoạn",large.length?`${large.length} segment > 8 shot.`:`${single.length} segment 1-shot; ${unusual.length} segment 7–8 shot. Baseline là 2–6; đây là segment-size law, không liên quan giới hạn 8s/shot.`);const refreshLater=segs.slice(1).filter(s=>s.requiresRefresh).length;add(refreshLater===Math.max(0,segs.length-1)?"pass":"warn","Cờ làm mới tính liên tục trước kiểm định",`${refreshLater}/${Math.max(0,segs.length-1)} segment sau SEG_001 đánh dấu requires refresh.`);const boundaryExp=segs.slice(1).filter(x=>/active_hook_ids|pending_hook_payoffs|voice_sentence_sequence_state|shot_forward_pull_state|scene_rehook_state|episode_forward_promise_state/i.test(x.rawBlock||"")).length;add(boundaryExp===Math.max(0,segs.length-1)?"pass":"warn","Experience boundary state",`${boundaryExp}/${Math.max(0,segs.length-1)} segment sau SEG_001 có hook/voice-sentence/retention boundary fields.`);add("warn","Bằng chứng tài sản đã kết xuất",bundle.meta.actualAssets==="false"?"Gói khai báo actual_assets_rendered_or_verified=false; kiểm định chỉ được kiểm tra gói/nhắc lệnh, không giả vờ đã xem đoạn phim.":`actual_assets_rendered_or_verified=${bundle.meta.actualAssets||"không rõ"}`);return out}
 function buildSectionBundle(shot,names){const p=[shot.identityText||`- shot_identity:\n    shot_id: ${shot.shotId}`];names.forEach(n=>{if(shot.sections[n])p.push(shot.sections[n])});return p.join("\n\n")}
 
-function currentVeoConfig(overrides={}){return{model:overrides.model||$('veoModel')?.value||storageGet('studioVeo31Model')||'veo-3.1-generate-001',aspectRatio:overrides.aspectRatio||$('veoAspectRatio')?.value||storageGet('studioVeo31AspectRatio')||'16:9',resolution:overrides.resolution||$('veoResolution')?.value||storageGet('studioVeo31Resolution')||'720p',audioMode:overrides.audioMode||$('veoAudioMode')?.value||storageGet('studioVeo31AudioMode')||'NATIVE_AUDIO'}}
-function veoTimingForShot(shot,config=null){const cfg=currentVeoConfig(config||{}),target=numericField(shot.targetDurationSeconds);if(!Number.isFinite(target)||target<=0||target>8)throw new Error(`${shot.shotId} có target_duration_seconds không hợp lệ: ${shot.targetDurationSeconds||'MISSING'}`);const requested=Number(config?.durationSeconds),generated=(cfg.resolution==='1080p'||cfg.resolution==='4k')?8:[4,6,8].includes(requested)?requested:target<=4?4:target<=6?6:8;return{...cfg,target,generated,trimIn:0,trimOut:target,resolutionNote:(cfg.resolution==='1080p'||cfg.resolution==='4k')&&target<8?`${cfg.resolution} yêu cầu clip 8 giây; cắt hậu kỳ theo trim_out.`:''}}
+function currentOmniConfig(overrides={}){return{aspectRatio:overrides.aspectRatio||$('omniAspectRatio')?.value||storageGet('studioOmniAspectRatio')||'16:9',resolution:overrides.resolution||$('omniResolution')?.value||storageGet('studioOmniResolution')||'720p',task:overrides.task||$('omniTask')?.value||storageGet('studioOmniTask')||'auto',store:overrides.store??($('omniStore')?.checked??storageGet('studioOmniStore')!=='false')}}
 function shotField(shot,field,...sections){for(const name of sections){const value=extractYamlFieldValue((shot.sections[name]||'').split('\n'),field);if(isMeaningfulValue(value))return value}return''}
-function expectedAspectNumber(value){const p=String(value||'').split(':').map(Number);return p.length===2&&p[0]>0&&p[1]>0?p[0]/p[1]:null}
-function sourceAssetValidation(shot,config=null){const asset=sourceImageAssets.get(shot.shotId),cfg=currentVeoConfig(config||{});if(!asset)return{ok:false,code:'MISSING',message:`Chưa gắn file Source Image cho ${shot.shotId}.`};if(!/^image\/(png|jpeg)$/i.test(asset.type))return{ok:false,code:'TYPE',message:'Veo chỉ nhận Source Image PNG hoặc JPEG trong quy trình này.'};const expected=expectedAspectNumber(cfg.aspectRatio),actual=asset.width&&asset.height?asset.width/asset.height:null;if(expected&&actual&&Math.abs(actual-expected)/expected>.035)return{ok:false,code:'ASPECT',message:`Ảnh ${asset.width}×${asset.height} không khớp tỷ lệ ${cfg.aspectRatio}.`};return{ok:true,code:'READY',message:`Đã khóa ${asset.name} với ${shot.shotId}.`}}
-function sourceAssetManifest(shot,config=null){const asset=sourceImageAssets.get(shot.shotId),valid=sourceAssetValidation(shot,config);if(!asset)return`status: NOT_ATTACHED\nrequired_filename_hint: ${shot.shotId}_SOURCE.png`;return`status: ${valid.ok?'READY':'INVALID_'+valid.code}\nfilename: ${asset.name}\nmime_type: ${asset.type}\nbytes: ${asset.size}\ndimensions: ${asset.width}x${asset.height}\nsha256: ${asset.sha256}\nvalidation: ${valid.message}`}
-async function attachSourceImage(shot,file){if(!file)return;if(!/^image\/(png|jpeg)$/i.test(file.type)){showCopyFeedback('Chỉ nhận Source Image PNG hoặc JPEG.',false);return}const old=sourceImageAssets.get(shot.shotId);if(old?.url)URL.revokeObjectURL(old.url);const url=URL.createObjectURL(file),dims=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve({width:img.naturalWidth,height:img.naturalHeight});img.onerror=()=>reject(new Error('Không đọc được kích thước ảnh.'));img.src=url}),buffer=await file.arrayBuffer(),digest=globalThis.crypto?.subtle?await crypto.subtle.digest('SHA-256',buffer):null,sha256=digest?Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join(''):'UNAVAILABLE';sourceImageAssets.set(shot.shotId,{file,url,name:file.name,type:file.type,size:file.size,width:dims.width,height:dims.height,sha256});const check=sourceAssetValidation(shot);showCopyFeedback(check.message,check.ok);renderShots()}
-async function copyAttachedSourceImage(shot){const asset=sourceImageAssets.get(shot.shotId);if(!asset){showCopyFeedback(`Chưa gắn Source Image cho ${shot.shotId}.`,false);return false}if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined'){showCopyFeedback(`Trình duyệt không cho sao chép ảnh. Hãy tải thủ công file ${asset.name} vào Veo.`,false);return false}try{await navigator.clipboard.write([new ClipboardItem({[asset.type]:asset.file})]);showCopyFeedback(`✓ Đã copy ảnh ${asset.name}. Dán ảnh vào ô first frame của Veo.`,true);return true}catch{showCopyFeedback(`Không copy được ảnh. Hãy tải thủ công file ${asset.name} vào Veo.`,false);return false}}
-function clearSourceImageAssets(){for(const asset of sourceImageAssets.values())if(asset.url)URL.revokeObjectURL(asset.url);sourceImageAssets.clear()}
-function clearVeoVideoJobs(){for(const state of veoVideoJobs.values())if(state.pollTimer)clearTimeout(state.pollTimer);veoVideoJobs.clear()}
 
 function framePromptData(shot){
   const read=(section,field)=>extractYamlFieldValue((shot.sections[section]||'').split('\n'),field);
@@ -331,7 +323,7 @@ function framePromptData(shot){
   return {...chosen,negatives,fallback:chosen.source!=='image.source_frame_prompt'&&chosen.source!=='model_adapter_outputs.source_frame_prompt',sourceConflict:available.filter(x=>x.source.endsWith('.source_frame_prompt')).some(x=>normalizeVoiceText(x.text)!==normalizeVoiceText(chosen.text))};
 }
 function buildFramePrompt(shot){
-  const data=framePromptData(shot),task=String($('frameTask')?.value||'').trim(),cfg=currentVeoConfig();
+  const data=framePromptData(shot),task=String($('frameTask')?.value||'').trim(),cfg=currentOmniConfig();
   if(!data.text)throw new Error('Shot '+shot.shotId+' thiếu prompt ảnh dùng được. Kiểm tra image.source_frame_prompt trong file nguồn.');
   const read=field=>extractYamlFieldValue((shot.sections.image||'').split('\n'),field)||extractYamlFieldValue((shot.sections.master_shot_spec||'').split('\n'),field);
   const parts=['[SOURCE_FRAME '+shot.shotId+']','Shot: '+shot.shotId+' | Cảnh: '+(shot.sceneId||'chưa khai báo')+' | Thứ tự dựng: '+shot.masterEditOrderIndex,
@@ -349,17 +341,28 @@ function buildFramePrompt(shot){
   parts.push('[/SOURCE_FRAME '+shot.shotId+']');return parts.join('\n\n');
 }
 
-function buildVideoPrompt(shot,requireValidAsset=false,config=null){
-  const check=sourceAssetValidation(shot,config),assetAttached=sourceImageAssets.has(shot.shotId);
-  if(assetAttached&&!check.ok)throw new Error(check.message);
-  const imageToVideo=check.ok,mode=imageToVideo?'IMAGE_TO_VIDEO':'TEXT_TO_VIDEO',frameData=framePromptData(shot);
-  const timing=veoTimingForShot(shot,config),mainAction=shotField(shot,'main_action','video','master_shot_spec'),cameraMovement=shotField(shot,'camera_movement','master_shot_spec')||shotField(shot,'camera_motion','video'),performance=shotField(shot,'observable_expression','master_shot_spec')||shotField(shot,'intent','master_shot_spec'),motionBudget=shotField(shot,'motion_budget_seconds','video','master_shot_spec'),temporalDirection=shotField(shot,'temporal_direction','video'),terminal=shotField(shot,'end_frame_requirement','model_adapter_outputs')||shot.intendedTerminalState||extractYamlFieldValue((shot.sections.intended_terminal_state||'').split('\n'),'intended_terminal_state')||shotField(shot,'terminal_state','master_shot_spec'),endHold=shotField(shot,'end_hold_behavior','video'),negativeMotion=shotField(shot,'negative_motion_prompt','model_adapter_outputs')||shotField(shot,'forbidden_temporal_reset','video'),ambience=shotField(shot,'ambience_and_spot_effects','sfx')||shotField(shot,'ambience','sfx'),voiceLines=shotVoiceLines(shot),task=String($('videoTask')?.value||'').trim();
-  const audio=timing.audioMode==='NATIVE_AUDIO'?(voiceLines.length?voiceLines.map(v=>`- ${v.timing||'timing theo shot'} | ${v.speaker||'VOICE'}: "${v.text}"`).join('\n'):'- Không có thoại có văn bản trong shot này. Không tự thêm lời.'):'- Audio sẽ ghép ngoài. Không tự sáng tác thoại; ưu tiên hình và chuyển động sạch để hậu kỳ.';
-  const durationNote=timing.generated===timing.target?`Dùng toàn bộ clip ${timing.generated}s.`:`Tạo clip ${timing.generated}s; chỉ dùng đoạn ${timing.trimIn.toFixed(2)}–${timing.trimOut.toFixed(2)}s trong bản dựng. Phần dư không được reset hoặc lặp.`;
-  const sourceInput=imageToVideo
-    ?`SOURCE_IMAGE_INPUT — TẢI FILE NÀY VÀO Ô FIRST FRAME CỦA VEO:\n${sourceAssetManifest(shot,config)}\nẢnh đã gắn là thẩm quyền cho chủ thể, bối cảnh, bố cục, ánh sáng và phong cách ở frame đầu.`
-    :`SOURCE_IMAGE_INPUT: OPTIONAL_NOT_ATTACHED\nexecution_mode: TEXT_TO_VIDEO\nKhông yêu cầu gắn ảnh first frame. Veo phải dựng trạng thái mở đầu trực tiếp từ đặc tả chữ sau đây.\n\nVISUAL START FRAME SPECIFICATION — ${frameData.source}:\n${frameData.text||'MISSING_SOURCE_DETAIL'}${frameData.negatives.length?`\n\nVISUAL NEGATIVE CONSTRAINTS:\n${frameData.negatives.map(x=>x.text).join('\n')}`:''}`;
-  return `[VEO_3_1_${mode}]\nSHOT_BINDING:\nshot_id: ${shot.shotId}\nscene_id: ${shot.sceneId||'UNDECLARED'}\nmaster_edit_order_index: ${shot.masterEditOrderIndex}\nexecution_mode: ${mode}\nmodel: ${timing.model}\naspect_ratio: ${timing.aspectRatio}\nresolution: ${timing.resolution}\ngenerated_duration_seconds: ${timing.generated}\ntarget_edit_duration_seconds: ${timing.target}\ntrim_in_seconds: ${timing.trimIn}\ntrim_out_seconds: ${timing.trimOut}\n${timing.resolutionNote?`note: ${timing.resolutionNote}\n`:''}\n${sourceInput}\n\n${imageToVideo?'MOTION-ONLY DIRECTION':'FULL TEXT-TO-VIDEO DIRECTION'}:\nmain_action: ${mainAction||'MISSING_SOURCE_DETAIL'}\ncamera_movement: ${cameraMovement||'STATIC_OR_SOURCE_AUTHORIZED_ONLY'}\nperformance: ${performance||'Giữ diễn xuất tự nhiên theo hành động nguồn.'}\nmotion_budget_seconds: ${motionBudget||timing.target}\ntemporal_direction: ${temporalDirection||'FORWARD_ONLY'}\nrequired_terminal_state: ${terminal||'MISSING_SOURCE_DETAIL'}\nend_hold: ${endHold||'Giữ trạng thái cuối tự nhiên tới frame cuối.'}\nduration_and_trim: ${durationNote}\n\nAUDIO:\nmode: ${timing.audioMode}\n${audio}\n${ambience?`ambience_and_sfx: ${ambience}\n`:''}\nRÀNG BUỘC CHUYỂN ĐỘNG:\n${negativeMotion||'Không loop, reverse, rewind, reset tư thế/vị trí/camera/vật thể hoặc tái dựng frame đầu ở cuối.'}\nKhông thêm chủ thể/vật thể mới và không làm người nói offscreen/audio-only xuất hiện.\n\nYÊU CẦU VẬN HÀNH:\n${task}\n[/VEO_3_1_${mode}]`;
+function buildVideoPrompt(shot){
+  const mainAction=shotField(shot,'main_action','video','master_shot_spec');
+  const cameraMovement=shotField(shot,'camera_movement','master_shot_spec')||shotField(shot,'camera_motion','video');
+  const performance=shotField(shot,'observable_expression','master_shot_spec')||shotField(shot,'intent','master_shot_spec');
+  const temporalDirection=shotField(shot,'temporal_direction','video');
+  const terminal=shotField(shot,'end_frame_requirement','model_adapter_outputs')||shot.intendedTerminalState||shotField(shot,'terminal_state','master_shot_spec');
+  const negativeMotion=shotField(shot,'negative_motion_prompt','model_adapter_outputs')||shotField(shot,'forbidden_temporal_reset','video');
+  const ambience=shotField(shot,'ambience_and_spot_effects','sfx')||shotField(shot,'ambience','sfx');
+  const voiceLines=shotVoiceLines(shot),task=String($('videoTask')?.value||'').trim();
+  const audio=voiceLines.length?voiceLines.map(function(v){return '- '+(v.timing||'timing theo shot')+' | '+(v.speaker||'VOICE')+': "'+v.text+'"';}).join('\n'):'- Không có thoại có văn bản. Không tự thêm lời.';
+  return [
+    'SHOT '+shot.shotId+' · '+(shot.sceneId||'UNDECLARED')+' · master order '+shot.masterEditOrderIndex,
+    'Thời lượng mục tiêu trong timeline: '+(shot.targetDurationSeconds||'chưa khai báo')+' giây. Đây là định hướng nội dung, không phải luật thời lượng model.',
+    'HÀNH ĐỘNG: '+(mainAction||'MISSING_SOURCE_DETAIL'),
+    'CAMERA: '+(cameraMovement||'Giữ máy ổn định hoặc chỉ chuyển động được nguồn cho phép.'),
+    'DIỄN XUẤT: '+(performance||'Tự nhiên theo hành động nguồn.'),
+    'HƯỚNG THỜI GIAN: '+(temporalDirection||'FORWARD_ONLY'),
+    'TRẠNG THÁI CUỐI: '+(terminal||'MISSING_SOURCE_DETAIL'),
+    'AUDIO:\n'+audio+(ambience?'\nAmbience và SFX: '+ambience:''),
+    'RÀNG BUỘC: '+(negativeMotion||'Không loop, reverse, rewind, reset tư thế, vị trí, camera hoặc vật thể. Không thêm chủ thể mới.'),
+    task?'YÊU CẦU BỔ SUNG:\n'+task:''
+  ].filter(Boolean).join('\n\n');
 }
 function segmentShotsInOrder(seg){if(!bundle||!seg)return[];return seg.shotIds.map(id=>bundle.shots.find(s=>s.shotId===id)).filter(Boolean)}
 function buildSegmentFramePack(seg,shotSubset=null){
@@ -442,7 +445,7 @@ function clearFrameSelection(render=true){selectedFrameShotIds.clear();if(render
 function normalizePhaseInput(raw=""){const n=normalizeText(raw).trim();const m=n.match(/\[PHASE_INPUT_PACKAGE\]([\s\S]*?)\[\/PHASE_INPUT_PACKAGE\]/i);return m?m[1].trim():n}
 function replacePhaseInput(prompt,content){if(!String(content||"").trim())return prompt;const normalized=normalizePhaseInput(content);if(/\[DIRECT_SCREENPLAY_INPUT\]/i.test(prompt)){const screenplay=normalized.replace(/^\s*\[SCRIPT_TEXT_START\]\s*/i,"").replace(/\s*\[\/?SCRIPT_TEXT_END\]\s*$/i,"").trim();const rep=`[SCRIPT_TEXT_START]\n${screenplay}\n[SCRIPT_TEXT_END]`;const permission=$("rewritePermission")?.value||"NONE";return prompt.replace(/^(rewrite_permission:\s*).*$/mi,`$1${permission}`).replace(/\[SCRIPT_TEXT_START\][\s\S]*?\[\/?SCRIPT_TEXT_END\]/i,()=>rep)}const rep=`[PHASE_INPUT_PACKAGE]\n${normalized}\n[/PHASE_INPUT_PACKAGE]`;return prompt.replace(/\[PHASE_INPUT_PACKAGE\][\s\S]*?\[\/PHASE_INPUT_PACKAGE\]/i,()=>rep)}
 
-let bundle=null,chain={segments:{},final:{}},selectedSegmentId="",shotLimit=60,selectedFrameShotIds=new Set();const sourceImageAssets=new Map(),veoVideoJobs=new Map();
+const Omni=window.StudioOmniCore;if(!Omni)throw new Error("Không tải được Omni core.");let bundle=null,chain={segments:{},final:{}},selectedSegmentId="",shotLimit=60,selectedFrameShotIds=new Set();const omniShotStates=new Map();
 async function fingerprintSource(text){if(globalThis.crypto?.subtle){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(normalizeText(text)));return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')}return 'SESSION_ONLY_'+Date.now()}
 function chainKey(){return bundle?`studioSnapshot20260923Chain:${bundle.meta.projectId||"unknown"}:${bundle.sourceFingerprint||bundle.meta.artifactSnapshotId||bundle.meta.fileName||"bundle"}`:""}
 function ensureSegState(id){return chain.segments[id]||(chain.segments[id]={p10Status:"NOT_RUN",p10Output:"",p11Status:"NOT_RUN",p11Output:"",commitRef:"",commitBlock:"",updatedAt:""})}
@@ -623,141 +626,186 @@ function shotVoiceCopyText(shot){
   return lines.map(line=>{const ref=line.dialogueId||line.eventId||"VOICE",speaker=line.speaker?` · ${line.speaker}`:"";return `[${ref}${speaker}] ${line.text}`}).join("\n");
 }
 function renderShotsEnhanced(){if(!bundle){$('shots').innerHTML='<div class="notice">Nạp gói để xem cảnh quay.</div>';return}const list=bundle.shots.filter(shotMatchesActiveFilters),shown=list.slice(0,shotLimit),voiceShotCount=list.filter(s=>voiceBearingShot(s)).length;$('shotStats').textContent=`${shown.length}/${list.length} shot · ${voiceShotCount} shot voice-bearing · total bundle ${bundle.shots.length}`;$('showMoreShots').style.display=shown.length<list.length?'inline-block':'none';$('shots').innerHTML=shown.map(s=>{const fp=isMeaningfulValue(s.retention?.forwardPull)||isMeaningfulValue(s.retention?.carryToNext),voiceLines=shotVoiceLines(s),hasVoice=voiceBearingShot(s),silent=voiceCarrierOrSilence(s),vi=s.voiceInfo||{},scene=shotSceneDetails(s),owner=voiceLines.some(v=>/^(true|yes|1)$/i.test(String(v.generationOwner||''))||String(v.generationInstruction||'').toUpperCase()==='GENERATE_COMPLETE_SENTENCE'),voiceChip=hasVoice?(owner?'<span class="chip">🎙 voice generation owner</span>':'<span class="chip">🎙 voice payload</span>'):silent?'<span class="chip">◌ NO_VOICE annotated</span>':'<span class="chip">◌ không voice</span>',voiceHtml=voiceLines.length?`<div class="shot-voice"><div class="shot-block-title"><span>🎙 Text voice · sentence payload</span><span>${voiceLines.length} câu</span></div><div class="voice-lines">${voiceLines.map(line=>{const meta=[line.sentenceId||line.eventId||line.dialogueId,line.speaker,line.timing].filter(Boolean).join(' · ');return`<div class="voice-line"><div class="voice-line-meta">${esc(meta||'VOICE')}</div><div class="voice-line-text">${esc(line.text)}</div></div>`}).join('')}</div></div>`:`<div class="shot-voice"><div class="shot-block-title"><span>🎙 Text voice</span><span>0 câu</span></div><div class="shot-scene-meta">${hasVoice?'Shot có cờ voice nhưng chưa đọc được FULL_SENTENCE/authorized sentence-segment payload.':`Không có voice${isMeaningfulValue(vi.silenceReason)?` · ${esc(vi.silenceReason)}`:''}.`}</div></div>`;return`<article class="shot" data-shot="${esc(s.shotId)}"><div class="seg-top"><h3>${esc(s.shotId)}</h3><span class="chip">#${esc(s.masterEditOrderIndex)}</span></div><div class="chips"><span class="chip">${esc(s.segmentId)}</span><span class="chip">${esc(s.sceneId)}</span><span class="chip">${esc(s.beatId)}</span>${s.targetDurationSeconds?`<span class="chip">⏱ ${esc(s.targetDurationSeconds)}s</span>`:''}${fp?'<span class="chip">↪ hook carry</span>':''}${voiceChip}${voiceLines.length?`<span class="chip">${voiceLines.length} payload</span>`:''}</div><div class="story">${esc(s.storyFunction||'Không có story_function')}</div><div class="shot-scene"><div class="shot-block-title"><span>🎞 Cảnh gì</span><span>${esc(scene.location)}</span></div><div class="shot-scene-text">${esc(scene.summary)}</div>${scene.composition?`<div class="shot-scene-meta">Khung hình: ${esc(scene.composition)}</div>`:''}</div>${voiceHtml}${isMeaningfulValue(s.retention?.forwardPull)?`<div class="small" style="margin-top:7px">forward pull: ${esc(s.retention.forwardPull)}</div>`:''}<div class="actionrow">${voiceLines.length?'<button class="btn voice-copy" data-voice>🎙 Sao chép thoại</button>':''}<button class="btn primary" data-frame title="Sao chép source_frame_prompt và image_adapter_negative">🖼️ Source Frame</button><button class="btn secondary" data-video>🎬 Video</button></div><details data-frame-detail><summary>Xem prompt Source Image</summary><pre class="preview"></pre></details><details data-detail><summary>Xem prompt Video</summary><pre class="preview"></pre></details></article>`}).join('')||(list.length===0?'<div class="notice">Không có shot phù hợp với bộ lọc hiện tại.</div>':'');$('shots').querySelectorAll('.shot').forEach(card=>{const shot=bundle.shots.find(s=>s.shotId===card.dataset.shot),voiceBtn=card.querySelector('[data-voice]');if(voiceBtn)voiceBtn.onclick=async e=>{const btn=e.currentTarget,ok=await copyText(shotVoiceCopyText(shot));finishCopy(btn,ok,'✓ Text voice đã copy',`✓ Đã copy ${shotVoiceLines(shot).length} voice payload · ${shot.shotId}`,card)};card.querySelector('[data-frame]').onclick=async e=>{const btn=e.currentTarget,ok=await copyText(buildFramePrompt(shot));finishCopy(btn,ok,'✓ Prompt ảnh đã copy',`✓ Đã copy prompt tạo ảnh Source Frame · ${shot.shotId}`,card)};card.querySelector('[data-video]').onclick=async e=>{const btn=e.currentTarget,ok=await copyText(buildVideoPrompt(shot));finishCopy(btn,ok,'✓ Video đã copy',`✓ Đã copy Video · ${shot.shotId}`,card)};const fd=card.querySelector('[data-frame-detail]');fd.ontoggle=()=>{if(fd.open){try{fd.querySelector('pre').textContent=buildFramePrompt(shot)}catch(err){fd.querySelector('pre').textContent=err.message}}};const d=card.querySelector('[data-detail]');d.ontoggle=()=>{if(d.open)d.querySelector('pre').textContent=buildVideoPrompt(shot)}})}
-function sourceAssetPanelHtml(shot){const asset=sourceImageAssets.get(shot.shotId),check=sourceAssetValidation(shot),optional=!asset,thumb=asset?`<img class="source-asset-thumb" src="${esc(asset.url)}" alt="Source Image ${esc(shot.shotId)}"/>`:'';const meta=asset?`${esc(asset.name)} · ${asset.width}×${asset.height} · ${(asset.size/1024/1024).toFixed(2)} MB · SHA-256 ${esc(asset.sha256.slice(0,12))}…`:'Để trống để tạo prompt Veo 3.1 theo chế độ text-to-video.';const state=check.ok?'READY':optional?'OPTIONAL':'INVALID',message=optional?'Không bắt buộc gắn Source Image; nút Prompt Veo 3.1 vẫn hoạt động.':check.message;return`<div class="source-asset ${!check.ok&&!optional?'missing':''}"><div class="shot-block-title"><span>🖼 First-frame asset</span><span>${state}</span></div><div class="source-asset-row">${thumb}<div style="flex:1;min-width:160px"><div class="source-asset-meta">${esc(meta)}</div><div class="source-asset-meta" style="color:${check.ok?'var(--ok)':optional?'var(--accent2)':'var(--warn)'}">${esc(message)}</div></div><label class="btn">${asset?'Đổi ảnh':'Gắn Source Image (tùy chọn)'}<input class="source-file-input" data-source-file type="file" accept="image/png,image/jpeg"/></label>${asset?'<button class="btn" data-copy-source type="button">📋 Copy ảnh</button><button class="btn danger" data-clear-source type="button">Bỏ ảnh</button>':''}</div></div>`}
-
-function veoJobState(shot){
-  const config=currentVeoConfig(),asset=sourceImageAssets.get(shot.shotId),sourceKey=asset?.sha256||'TEXT_TO_VIDEO';
-  let state=veoVideoJobs.get(shot.shotId);
-  if(!state){
-    const timing=veoTimingForShot(shot,config);
-    state={status:'IDLE',model:config.model,aspectRatio:config.aspectRatio,resolution:config.resolution,durationSeconds:timing.generated,audioMode:config.audioMode,prompt:'',promptDirty:false,sourceKey,error:'',id:null,statusUrl:'',downloadUrl:'',videoUrl:'',pollTimer:null,pollFailures:0};
-    try{state.prompt=buildVideoPrompt(shot,false,state)}catch(err){state.error=err.message}
-    veoVideoJobs.set(shot.shotId,state);
-  }else if(state.sourceKey!==sourceKey){
-    state.sourceKey=sourceKey;
-    if(!state.promptDirty){try{state.prompt=buildVideoPrompt(shot,false,state);state.error=''}catch(err){state.error=err.message}}
-  }
-  return state;
-}
-
-function veoStatusMeta(state){
+function omniConfig(overrides={}){
   return {
-    IDLE:['Sẵn sàng','idle'],SUBMITTING:['Đang gửi yêu cầu…','working'],QUEUED:['Đã xếp hàng','working'],RUNNING:['VEO đang tạo video…','working'],SUCCEEDED:['Video đã sẵn sàng','success'],FAILED:['Tạo video thất bại','failed']
-  }[state.status]||[state.status||'Sẵn sàng','idle'];
+    aspectRatio:overrides.aspectRatio||$('omniAspectRatio')?.value||storageGet('studioOmniAspectRatio')||'16:9',
+    resolution:overrides.resolution||$('omniResolution')?.value||storageGet('studioOmniResolution')||'720p',
+    task:overrides.task||$('omniTask')?.value||storageGet('studioOmniTask')||'auto',
+    store:overrides.store??($('omniStore')?.checked??storageGet('studioOmniStore')!=='false')
+  };
 }
-
-function veoApiPanelHtml(shot){
-  const state=veoJobState(shot),asset=sourceImageAssets.get(shot.shotId),assetCheck=sourceAssetValidation(shot,state),imageToVideo=!!asset&&assetCheck.ok,busy=['SUBMITTING','QUEUED','RUNNING'].includes(state.status),status=veoStatusMeta(state),durationLocked=state.resolution==='1080p'||state.resolution==='4k';
-  const startFrame=asset?`<img src="${esc(asset.url)}" alt="Khung bắt đầu ${esc(shot.shotId)}"/><span>Khung bắt đầu</span>`:'<span class="veo-frame-icon">＋</span><span>Thêm khung đầu</span>';
-  const output=state.status==='SUCCEEDED'&&state.videoUrl?`<div class="veo-result"><video controls preload="metadata" src="${esc(state.videoUrl)}"></video><div class="veo-result-actions"><span>✓ ${esc(shot.shotId)} đã hoàn tất</span><a class="btn secondary" href="${esc(state.videoUrl)}" download>Tải MP4</a></div></div>`:'';
-  return `<section class="veo-api-panel" aria-label="Tạo video VEO cho ${esc(shot.shotId)}">
-    <div class="veo-panel-head"><div><span class="veo-eyebrow">VEO 3.1 API</span><h4>Tạo video từ shot</h4></div><span class="veo-mode">${imageToVideo?'Ảnh → Video':'Text → Video'}</span></div>
-    <div class="veo-frame-flow">
-      <label class="veo-frame-slot ${asset?'has-image':''}">${startFrame}<input data-veo-source type="file" accept="image/png,image/jpeg"/></label>
-      <span class="veo-frame-swap" aria-hidden="true">⇄</span>
-      <div class="veo-frame-slot end-frame"><span class="veo-frame-icon">◇</span><span>Kết thúc tự động</span></div>
-    </div>
-    <label class="veo-field"><span>Prompt chuyển động</span><textarea data-veo-prompt placeholder="Mô tả chuyển động, camera và âm thanh…">${esc(state.prompt)}</textarea></label>
-    <div class="veo-prompt-tools"><button class="veo-text-button" data-veo-reset-prompt type="button">↻ Dùng lại prompt của shot</button><span>${imageToVideo?'Đã dùng Source Image':'Không bắt buộc Source Image'}</span></div>
-    <div class="veo-control-grid">
-      <label class="veo-field"><span>Model</span><select data-veo-model><option value="veo-3.1-generate-001" ${state.model==='veo-3.1-generate-001'?'selected':''}>Veo 3.1</option><option value="veo-3.1-fast-generate-001" ${state.model==='veo-3.1-fast-generate-001'?'selected':''}>Veo 3.1 Fast</option></select></label>
-      <div class="veo-field"><span>Tỷ lệ</span><div class="veo-segmented"><button type="button" data-veo-aspect="16:9" aria-pressed="${state.aspectRatio==='16:9'}">▭ 16:9</button><button type="button" data-veo-aspect="9:16" aria-pressed="${state.aspectRatio==='9:16'}">▯ 9:16</button></div></div>
-    </div>
-    <div class="veo-option-row"><span>Độ phân giải</span><div class="veo-segmented"><button type="button" data-veo-resolution="720p" aria-pressed="${state.resolution==='720p'}">720p</button><button type="button" data-veo-resolution="1080p" aria-pressed="${state.resolution==='1080p'}">1080p</button><button type="button" data-veo-resolution="4k" aria-pressed="${state.resolution==='4k'}">4K</button></div></div>
-    <div class="veo-option-row"><span>Thời lượng</span><div class="veo-segmented"><button type="button" data-veo-duration="4" aria-pressed="${state.durationSeconds===4}" ${durationLocked?'disabled':''}>4 giây</button><button type="button" data-veo-duration="6" aria-pressed="${state.durationSeconds===6}" ${durationLocked?'disabled':''}>6 giây</button><button type="button" data-veo-duration="8" aria-pressed="${state.durationSeconds===8}">8 giây</button></div></div>
-    ${durationLocked?`<div class="veo-hint">${esc(state.resolution)} yêu cầu thời lượng 8 giây.</div>`:''}
-    <div class="veo-submit-row"><div class="veo-api-status ${status[1]}" role="status"><span></span><div><strong>${esc(status[0])}</strong>${state.error?`<small>${esc(state.error)}</small>`:`<small>${imageToVideo?'Sẽ gửi prompt và ảnh đã chọn.':'Sẽ gửi prompt theo chế độ text-to-video.'}</small>`}</div></div><button class="veo-generate" data-veo-generate type="button" ${busy?'disabled':''}><span>${state.status==='FAILED'?'Thử lại':busy?'Đang tạo':'Tạo video'}</span><b>${busy?'•••':'→'}</b></button></div>
-    ${output}
+async function loadOmniConfig(){const status=$('omniBackendStatus');if(!status)return;try{const response=await fetch('/api/omni/config');if(!response.ok)throw new Error(await omniError(response));const config=await response.json();status.classList.toggle('warn',!config.configured);status.textContent=config.configured?`Backend sẵn sàng · ${config.model} · tối đa ${config.maxConcurrentJobs} job đồng thời`:`Backend đang chạy nhưng chưa có GEMINI_API_KEY · ${config.model}`;}catch(error){status.classList.add('warn');status.textContent=`Không kết nối được backend Omni: ${error?.message||'unknown error'}`;}}
+function omniState(shot){
+  let state=omniShotStates.get(shot.shotId);
+  if(state)return state;
+  const config=omniConfig(),key=Omni.historyKey(bundle?.sourceFingerprint,shot.shotId);
+  let saved={};try{saved=JSON.parse(storageGet(key)||'{}')}catch{}
+  state=Omni.createState({...config,...saved,prompt:saved.prompt||buildVideoPrompt(shot)});
+  state.media=[];state.job=null;state.pollTimer=null;
+  omniShotStates.set(shot.shotId,state);return state;
+}
+function updateOmniState(shot,action,{render=true}={}){
+  const previous=omniState(shot),next=Omni.reduceState(previous,action);
+  if(previous.pollTimer&&!next.pollTimer)next.pollTimer=previous.pollTimer;
+  omniShotStates.set(shot.shotId,next);
+  storageSet(Omni.historyKey(bundle?.sourceFingerprint,shot.shotId),JSON.stringify(Omni.serializableState(next)));
+  if(render)renderShots();return next;
+}
+function clearOmniJobs(){
+  for(const state of omniShotStates.values()){
+    if(state.pollTimer)clearTimeout(state.pollTimer);
+    for(const item of state.media||[])if(item.previewUrl)URL.revokeObjectURL(item.previewUrl);
+  }
+  omniShotStates.clear();
+}
+function defaultMediaRole(state,file){
+  if(/^video\//.test(file.type))return state.mode==='GENERATE'?'VIDEO_REFERENCE':'SOURCE_VIDEO';
+  if(state.mode!=='GENERATE')return'IMAGE_REFERENCE';
+  if(!state.media.some(item=>item.role==='FIRST_FRAME'))return'FIRST_FRAME';
+  return'IMAGE_REFERENCE';
+}
+async function omniError(response){
+  try{const data=await response.json();return data.message||data.detail||data.title||`HTTP ${response.status}`}catch{return`HTTP ${response.status}`}
+}
+async function pollOmniMedia(shot,localId,fileId,attempt=0){
+  const state=omniState(shot),item=state.media.find(entry=>entry.localId===localId);if(!item)return;
+  try{
+    const response=await fetch(`/api/omni/media/${encodeURIComponent(fileId)}`);
+    if(!response.ok)throw new Error(await omniError(response));
+    const data=await response.json();
+    updateOmniState(shot,{type:'UPDATE_MEDIA',localId,patch:{...data,state:data.state||'PROCESSING',error:data.error||''}});
+    if(data.state==='PROCESSING'||data.state==='STATE_UNSPECIFIED'){
+      setTimeout(()=>pollOmniMedia(shot,localId,fileId,attempt+1),Omni.pollDelay(attempt));
+    }
+  }catch(error){
+    if(attempt<4)setTimeout(()=>pollOmniMedia(shot,localId,fileId,attempt+1),Omni.pollDelay(attempt));
+    else updateOmniState(shot,{type:'UPDATE_MEDIA',localId,patch:{state:'FAILED',error:error?.message||'Không kiểm tra được media.'}});
+  }
+}
+async function uploadOmniMedia(shot,file,forcedRole){
+  if(!file)return;
+  if(!/^(image|video)\//.test(file.type))throw new Error('Chỉ nhận ảnh hoặc video; audio reference không được hỗ trợ.');
+  let state=omniState(shot);const localId=crypto.randomUUID(),media={
+    localId,displayName:file.name,mimeType:file.type,sizeBytes:file.size,
+    previewUrl:URL.createObjectURL(file),role:forcedRole||defaultMediaRole(state,file),state:'UPLOADING',fileId:'',order:state.media.length
+  };
+  state=updateOmniState(shot,{type:'ADD_MEDIA',media});
+  try{
+    const form=new FormData();form.append('file',file);
+    const response=await fetch('/api/omni/media',{method:'POST',body:form});
+    if(!response.ok)throw new Error(await omniError(response));
+    const data=await response.json();
+    updateOmniState(shot,{type:'UPDATE_MEDIA',localId,patch:{...data,state:data.state||'PROCESSING'}});
+    if(data.state!=='ACTIVE'&&data.state!=='FAILED')void pollOmniMedia(shot,localId,data.fileId);
+  }catch(error){
+    updateOmniState(shot,{type:'UPDATE_MEDIA',localId,patch:{state:'FAILED',error:error?.message||'Tải media thất bại.'}});
+  }
+}
+async function removeOmniMedia(shot,localId){
+  const state=omniState(shot),item=state.media.find(entry=>entry.localId===localId);
+  if(item?.fileId){try{await fetch(`/api/omni/media/${encodeURIComponent(item.fileId)}`,{method:'DELETE'})}catch{}}
+  if(item?.previewUrl)URL.revokeObjectURL(item.previewUrl);
+  updateOmniState(shot,{type:'REMOVE_MEDIA',localId});
+}
+function modeLabel(mode){return mode==='GENERATE'?'Tạo':mode==='EDIT'?'Chỉnh sửa':'Mở rộng'}
+function statusLabel(status){return({QUEUED:'Đang xếp hàng',GENERATING:'Gemini đang tạo',PROCESSING_OUTPUT:'Đang xử lý output',DOWNLOADING:'Đang lưu MP4',SUCCEEDED:'Hoàn tất',FAILED:'Thất bại'})[status]||'Sẵn sàng'}
+function mediaRoleOptions(selected){return Omni.ROLES.map(role=>`<option value="${role}" ${role===selected?'selected':''}>${role}</option>`).join('')}
+function omniMediaHtml(state){
+  if(!state.media.length)return'<div class="omni-empty">Chưa có media. Ảnh và video được tải lên Files API, không lưu base64 trong trình duyệt.</div>';
+  return state.media.map((item,index)=>{const expired=item.expirationTime&&Date.parse(item.expirationTime)<=Date.now(),duration=item.durationSeconds!=null?` · ${Number(item.durationSeconds).toFixed(1)}s`:'';return`<div class="omni-media-item ${item.state==='FAILED'||expired?'failed':''}">
+    ${item.previewUrl?item.mimeType?.startsWith('video/')?`<video muted preload="metadata" src="${esc(item.previewUrl)}"></video>`:`<img src="${esc(item.previewUrl)}" alt=""/>`:''}
+    <div class="omni-media-info"><strong>${esc(item.displayName)}</strong><small>${esc(item.state)}${duration}${expired?' · HẾT HẠN, CẦN TẢI LẠI':''}${item.role==='VIDEO_REFERENCE'?' · bỏ qua audio':''}</small><select class="select" data-omni-role="${esc(item.localId)}">${mediaRoleOptions(item.role)}</select>${item.error?`<small class="omni-error">${esc(item.error)}</small>`:''}</div>
+    <div class="omni-media-actions"><button class="btn" data-omni-move="${esc(item.localId)}" data-delta="-1" ${index===0?'disabled':''}>↑</button><button class="btn" data-omni-move="${esc(item.localId)}" data-delta="1" ${index===state.media.length-1?'disabled':''}>↓</button><button class="btn danger" data-omni-remove="${esc(item.localId)}">×</button></div>
+  </div>`}).join('');
+}
+function omniTimelineHtml(state){
+  if(!state.history.length)return'<div class="omni-empty">Chưa có turn. Output thành công sẽ xuất hiện ở đây và vẫn preview được từ bản MP4 local.</div>';
+  return state.history.map((turn,index)=>`<div class="omni-turn ${state.selectedTurnId===turn.interactionId?'selected':''}">
+    <button type="button" data-omni-turn="${esc(turn.interactionId)}"><span>${index+1}. ${esc(modeLabel(turn.mode))}</span><small>${turn.parentInteractionId?'↳ '+esc(turn.parentInteractionId.slice(0,12))+'…':'gốc'} · ${turn.store?'có thể nối':'chỉ lưu local'}</small></button>
+    <video controls preload="metadata" src="${esc(turn.outputUrl||`/api/omni/outputs/${turn.interactionId}`)}"></video>
+    <div class="actionrow"><a class="btn" href="/api/omni/outputs/${encodeURIComponent(turn.interactionId)}" download>Tải MP4</a><button class="btn" data-omni-reupload="${esc(turn.interactionId)}">Tải lại làm nguồn</button><button class="btn danger" data-omni-delete-turn="${esc(turn.interactionId)}">Xóa</button></div>
+  </div>`).join('');
+}
+function omniPanelHtml(shot){
+  const state=omniState(shot),compiled=Omni.compilePrompt(state.prompt,state.media,state.mode),errors=Omni.validateDraft({...state,prompt:compiled}),busy=state.job&&!Omni.DONE_STATUSES.has(state.job.status),storedTurns=state.history.filter(turn=>turn.store),sourceHelp=state.mode==='GENERATE'?'Tạo từ text, first/last frame và tối đa 3 video reference.':'Chọn một turn có store hoặc tải đúng một SOURCE_VIDEO ≤10 giây.';
+  return`<section class="omni-panel" aria-label="Gemini Omni cho ${esc(shot.shotId)}">
+    <div class="omni-panel-head"><div><span class="omni-eyebrow">GEMINI OMNI 1.1 FLASH</span><h4>Tạo và chỉnh sửa video</h4></div><span class="omni-model">gemini-omni-1.1-flash</span></div>
+    <div class="omni-tabs">${Omni.MODES.map(mode=>`<button type="button" data-omni-mode="${mode}" aria-pressed="${state.mode===mode}">${modeLabel(mode)}</button>`).join('')}</div>
+    <p class="omni-help">${sourceHelp}${state.mode==='EXTEND'?' Tổng chuỗi mở rộng tối đa 40 giây.':''}</p>
+    ${state.mode!=='GENERATE'?`<label class="omni-field"><span>Nguồn từ timeline</span><select data-omni-parent class="select"><option value="">Dùng SOURCE_VIDEO tải lên</option>${storedTurns.map(turn=>`<option value="${esc(turn.interactionId)}" ${state.previousInteractionId===turn.interactionId?'selected':''}>${esc(turn.interactionId)} · ${modeLabel(turn.mode)}</option>`).join('')}</select></label>`:''}
+    <div class="omni-tray"><div class="shot-block-title"><span>Media tray</span><label class="btn">＋ Tải media<input data-omni-upload class="source-file-input" type="file" accept="image/*,video/*" multiple/></label></div>${omniMediaHtml(state)}</div>
+    <label class="omni-field"><span>Prompt nội dung</span><textarea data-omni-prompt placeholder="Mô tả hình ảnh, chuyển động, camera, nhịp, audio và text trong video…">${esc(state.prompt)}</textarea></label>
+    <div class="omni-prompt-tools"><button data-omni-chip="single continuous shot, no cuts">Một shot liên tục</button><button data-omni-chip="no dialogue, no extra effects">Không thoại/hiệu ứng thêm</button><button data-omni-chip="Audio direction: ">Chỉ dẫn audio</button><button data-omni-chip="[00:00-00:03] ">Timecode</button><button data-omni-chip="On-screen text: ">Text trong video</button>${state.mode==='EDIT'?'<button data-omni-chip="Keep everything else the same.">Giữ phần còn lại</button>':''}${state.mode==='EXTEND'?'<button data-omni-chip="Continue naturally from the final frame, preserving identity, motion, lighting, camera direction, and audio continuity.">Mẫu continuation</button>':''}</div>
+    <details class="omni-compiled"><summary>Prompt cuối · chỉ đọc</summary><pre>${esc(compiled)}</pre></details>
+    <div class="omni-control-grid"><label>Task<select class="select" data-omni-task>${Omni.TASKS.map(task=>`<option value="${task}" ${state.task===task?'selected':''}>${task==='auto'?'Auto':task}</option>`).join('')}</select></label><label>Tỷ lệ<select class="select" data-omni-aspect>${Omni.ASPECT_RATIOS.map(value=>`<option ${state.aspectRatio===value?'selected':''}>${value}</option>`).join('')}</select></label><label>Độ phân giải<select class="select" data-omni-resolution>${Omni.RESOLUTIONS.map(value=>`<option ${state.resolution===value?'selected':''}>${value}</option>`).join('')}</select></label><label class="omni-store"><input data-omni-store type="checkbox" ${state.store?'checked':''}/> Cho phép chỉnh sửa tiếp</label></div>
+    <div class="omni-warnings">Không hỗ trợ voice editing hoặc audio reference · video reference bỏ qua audio · tiếng Anh được đánh giá đầy đủ hơn · giới hạn người thật và edit/extend video upload phụ thuộc khu vực · mọi video có SynthID.${state.mode==='EXTEND'?' Mở rộng chỉ nối vào cuối; video upload có người đang nói không thể được nối thêm thoại, còn multi-turn vẫn hỗ trợ speech.':''}</div>
+    ${errors.length?`<div class="omni-validation">${errors.map(error=>`<div>• ${esc(error)}</div>`).join('')}</div>`:''}
+    <div class="omni-submit"><div class="omni-status ${state.job?.status==='FAILED'?'failed':state.job?.status==='SUCCEEDED'?'success':busy?'working':''}"><strong>${esc(statusLabel(state.job?.status))}</strong><small>${esc(state.job?.error||'Output được lưu local sau khi hoàn tất.')}</small></div><button class="omni-generate" data-omni-generate type="button" ${busy?'disabled':''}>${state.job?.status==='FAILED'?'Thử lại':busy?'Đang xử lý…':modeLabel(state.mode)}</button></div>
+    <details class="omni-timeline" open><summary>Timeline interaction · ${state.history.length} turn</summary>${omniTimelineHtml(state)}</details>
   </section>`;
 }
-
-async function veoApiError(response){
-  try{const payload=await response.json();return payload?.message||payload?.error||`API VEO trả về HTTP ${response.status}.`}catch{return`Không kết nối được API VEO (HTTP ${response.status}).`}
-}
-
-function refreshVeoPrompt(shot,state){
-  state.promptDirty=false;
-  try{state.prompt=buildVideoPrompt(shot,false,state);state.error=''}catch(err){state.error=err.message}
-}
-
-async function pollVeoVideo(shotId){
-  const state=veoVideoJobs.get(shotId);
-  if(!state?.statusUrl||!['QUEUED','RUNNING'].includes(state.status))return;
+async function pollOmniJob(shot,attempt=0){
+  const state=omniState(shot),job=state.job;if(!job?.statusUrl)return;
   try{
-    const response=await fetch(state.statusUrl,{cache:'no-store'});
-    if(!response.ok)throw new Error(await veoApiError(response));
-    const result=await response.json();
-    state.status=result.status||'RUNNING';state.error=result.error||'';state.pollFailures=0;
-    if(result.videoUrl){state.videoUrl=result.videoUrl;state.downloadUrl=result.videoUrl}
-    renderShots();
-    if(!result.done&&['QUEUED','RUNNING'].includes(state.status))state.pollTimer=setTimeout(()=>pollVeoVideo(shotId),5000);
-  }catch(err){
-    state.pollFailures=(state.pollFailures||0)+1;state.error=err?.message||'Không kiểm tra được trạng thái VEO.';
-    if(state.pollFailures>=3)state.status='FAILED';
-    renderShots();
-    if(state.status!=='FAILED')state.pollTimer=setTimeout(()=>pollVeoVideo(shotId),5000);
+    const response=await fetch(job.statusUrl);if(!response.ok)throw new Error(await omniError(response));
+    const data=await response.json();
+    if(data.status==='SUCCEEDED')updateOmniState(shot,{type:'JOB_SUCCEEDED',job:data});
+    else{
+      const next=updateOmniState(shot,{type:'JOB_UPDATE',job:data});
+      if(!Omni.DONE_STATUSES.has(data.status))next.pollTimer=setTimeout(()=>pollOmniJob(shot,0),2500);
+    }
+  }catch(error){
+    if(attempt<5){state.pollTimer=setTimeout(()=>pollOmniJob(shot,attempt+1),Omni.pollDelay(attempt));}
+    else updateOmniState(shot,{type:'JOB_UPDATE',job:{...job,status:'FAILED',done:true,error:error?.message||'Mất kết nối khi theo dõi job.',retryable:true}});
   }
 }
-
-async function startVeoVideo(shot,card){
-  const state=veoJobState(shot),prompt=card.querySelector('[data-veo-prompt]')?.value.trim()||'';
-  state.prompt=prompt;state.promptDirty=true;state.error='';
-  if(!prompt){state.status='FAILED';state.error='Prompt video không được để trống.';renderShots();return}
-  const asset=sourceImageAssets.get(shot.shotId),assetCheck=sourceAssetValidation(shot,state);
-  if(asset&&!assetCheck.ok){state.status='FAILED';state.error=assetCheck.message;renderShots();return}
-  if(state.pollTimer)clearTimeout(state.pollTimer);
-  state.status='SUBMITTING';state.videoUrl='';state.downloadUrl='';renderShots();
+async function startOmniJob(shot,card){
+  let state=omniState(shot),prompt=card.querySelector('[data-omni-prompt]')?.value||state.prompt;
+  state=updateOmniState(shot,{type:'PATCH',patch:{prompt}},{render:false});
   try{
-    const form=new FormData();form.append('prompt',prompt);form.append('shotId',shot.shotId);form.append('model',state.model);form.append('aspectRatio',state.aspectRatio);form.append('resolution',state.resolution);form.append('durationSeconds',String(state.durationSeconds));if(asset)form.append('image',asset.file,asset.name);
-    const response=await fetch('/api/veo/videos',{method:'POST',body:form});
-    if(!response.ok)throw new Error(await veoApiError(response));
-    const result=await response.json();
-    state.id=result.id;state.status=result.status||'QUEUED';state.statusUrl=result.statusUrl||`/api/veo/videos/${result.id}`;state.downloadUrl=result.downloadUrl||'';state.pollFailures=0;renderShots();
-    state.pollTimer=setTimeout(()=>pollVeoVideo(shot.shotId),2500);
-  }catch(err){state.status='FAILED';state.error=err?.message||'Không thể gửi yêu cầu tới VEO.';renderShots()}
+    const request=Omni.toJobRequest(shot.shotId,state),response=await fetch('/api/omni/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
+    if(!response.ok)throw new Error(await omniError(response));
+    const data=await response.json(),next=updateOmniState(shot,{type:'JOB_UPDATE',job:data});
+    next.pollTimer=setTimeout(()=>pollOmniJob(shot),1500);
+  }catch(error){updateOmniState(shot,{type:'JOB_UPDATE',job:{status:'FAILED',done:true,error:error?.message||'Không tạo được job.',retryable:false}})}
 }
-
-function bindVeoApiPanel(card,shot){
-  const state=veoJobState(shot),prompt=card.querySelector('[data-veo-prompt]');
-  if(prompt)prompt.oninput=e=>{state.prompt=e.currentTarget.value;state.promptDirty=true};
-  card.querySelector('[data-veo-source]')?.addEventListener('change',async e=>{try{await attachSourceImage(shot,e.currentTarget.files?.[0])}catch(err){state.status='FAILED';state.error=err?.message||'Không đọc được ảnh.';renderShots()}});
-  card.querySelector('[data-veo-reset-prompt]')?.addEventListener('click',()=>{refreshVeoPrompt(shot,state);renderShots()});
-  card.querySelector('[data-veo-model]')?.addEventListener('change',e=>{state.model=e.currentTarget.value;if(!state.promptDirty)refreshVeoPrompt(shot,state);renderShots()});
-  card.querySelectorAll('[data-veo-aspect]').forEach(button=>button.onclick=()=>{state.aspectRatio=button.dataset.veoAspect;if(!state.promptDirty)refreshVeoPrompt(shot,state);renderShots()});
-  card.querySelectorAll('[data-veo-resolution]').forEach(button=>button.onclick=()=>{state.resolution=button.dataset.veoResolution;if(state.resolution!=='720p')state.durationSeconds=8;if(!state.promptDirty)refreshVeoPrompt(shot,state);renderShots()});
-  card.querySelectorAll('[data-veo-duration]').forEach(button=>button.onclick=()=>{state.durationSeconds=Number(button.dataset.veoDuration);if(!state.promptDirty)refreshVeoPrompt(shot,state);renderShots()});
-  card.querySelector('[data-veo-generate]')?.addEventListener('click',()=>startVeoVideo(shot,card));
+async function reuploadOmniOutput(shot,interactionId){
+  const response=await fetch(`/api/omni/outputs/${encodeURIComponent(interactionId)}`);if(!response.ok)throw new Error(await omniError(response));
+  const blob=await response.blob(),file=new File([blob],`${interactionId}.mp4`,{type:'video/mp4'});await uploadOmniMedia(shot,file,'SOURCE_VIDEO');
 }
-function renderShotsVeoFixed(){
+async function deleteOmniTurn(shot,interactionId){
+  const state=omniState(shot),turn=state.history.find(item=>item.interactionId===interactionId),url=turn?.store?`/api/omni/interactions/${encodeURIComponent(interactionId)}`:`/api/omni/outputs/${encodeURIComponent(interactionId)}`;
+  const response=await fetch(url,{method:'DELETE'});if(!response.ok&&response.status!==404)throw new Error(await omniError(response));
+  updateOmniState(shot,{type:'PATCH',patch:{history:state.history.filter(item=>item.interactionId!==interactionId),selectedTurnId:state.selectedTurnId===interactionId?'':state.selectedTurnId,previousInteractionId:state.previousInteractionId===interactionId?'':state.previousInteractionId}});
+}
+function bindOmniPanel(card,shot){
+  const state=omniState(shot);
+  card.querySelectorAll('[data-omni-mode]').forEach(button=>button.onclick=()=>updateOmniState(shot,{type:'PATCH',patch:{mode:button.dataset.omniMode,task:'auto',previousInteractionId:''}}));
+  card.querySelector('[data-omni-parent]')?.addEventListener('change',event=>updateOmniState(shot,{type:'PATCH',patch:{previousInteractionId:event.currentTarget.value} }));
+  card.querySelector('[data-omni-upload]')?.addEventListener('change',event=>{for(const file of event.currentTarget.files||[])void uploadOmniMedia(shot,file)});
+  card.querySelectorAll('[data-omni-role]').forEach(select=>select.onchange=event=>updateOmniState(shot,{type:'UPDATE_MEDIA',localId:select.dataset.omniRole,patch:{role:event.currentTarget.value}}));
+  card.querySelectorAll('[data-omni-remove]').forEach(button=>button.onclick=()=>void removeOmniMedia(shot,button.dataset.omniRemove));
+  card.querySelectorAll('[data-omni-move]').forEach(button=>button.onclick=()=>updateOmniState(shot,{type:'MOVE_MEDIA',localId:button.dataset.omniMove,delta:Number(button.dataset.delta)}));
+  const prompt=card.querySelector('[data-omni-prompt]');if(prompt)prompt.onchange=event=>updateOmniState(shot,{type:'PATCH',patch:{prompt:event.currentTarget.value}});
+  card.querySelectorAll('[data-omni-chip]').forEach(button=>button.onclick=()=>updateOmniState(shot,{type:'PATCH',patch:{prompt:(prompt?.value||state.prompt).trim()+`\n${button.dataset.omniChip}`}}));
+  card.querySelector('[data-omni-task]')?.addEventListener('change',event=>updateOmniState(shot,{type:'PATCH',patch:{task:event.currentTarget.value}}));
+  card.querySelector('[data-omni-aspect]')?.addEventListener('change',event=>updateOmniState(shot,{type:'PATCH',patch:{aspectRatio:event.currentTarget.value}}));
+  card.querySelector('[data-omni-resolution]')?.addEventListener('change',event=>updateOmniState(shot,{type:'PATCH',patch:{resolution:event.currentTarget.value}}));
+  card.querySelector('[data-omni-store]')?.addEventListener('change',event=>updateOmniState(shot,{type:'PATCH',patch:{store:event.currentTarget.checked}}));
+  card.querySelector('[data-omni-generate]')?.addEventListener('click',()=>void startOmniJob(shot,card));
+  card.querySelectorAll('[data-omni-turn]').forEach(button=>button.onclick=()=>{const id=button.dataset.omniTurn,turn=state.history.find(item=>item.interactionId===id);updateOmniState(shot,{type:'PATCH',patch:{selectedTurnId:id,previousInteractionId:turn?.store?id:'',mode:state.mode==='GENERATE'?'EDIT':state.mode}})});
+  card.querySelectorAll('[data-omni-reupload]').forEach(button=>button.onclick=async()=>{try{await reuploadOmniOutput(shot,button.dataset.omniReupload)}catch(error){showCopyFeedback(error.message,false)}});
+  card.querySelectorAll('[data-omni-delete-turn]').forEach(button=>button.onclick=async()=>{try{await deleteOmniTurn(shot,button.dataset.omniDeleteTurn)}catch(error){showCopyFeedback(error.message,false)}});
+}
+function renderShotsOmni(){
   if(!bundle){$('shots').innerHTML='<div class="notice">Nạp gói để xem cảnh quay.</div>';return}
-  const list=bundle.shots.filter(shotMatchesActiveFilters),shown=list.slice(0,shotLimit),voiceShotCount=list.filter(s=>voiceBearingShot(s)).length,readyCount=list.filter(s=>sourceAssetValidation(s).ok).length;
-  $('shotStats').textContent=`${shown.length}/${list.length} shot · ${voiceShotCount} shot voice-bearing · ${readyCount} Source Image READY · total bundle ${bundle.shots.length}`;$('showMoreShots').style.display=shown.length<list.length?'inline-block':'none';
-  $('shots').innerHTML=shown.map(s=>{const fp=isMeaningfulValue(s.retention?.forwardPull)||isMeaningfulValue(s.retention?.carryToNext),voiceLines=shotVoiceLines(s),hasVoice=voiceBearingShot(s),silent=voiceCarrierOrSilence(s),vi=s.voiceInfo||{},scene=shotSceneDetails(s),owner=voiceLines.some(v=>/^(true|yes|1)$/i.test(String(v.generationOwner||''))||/^GENERATE_(?:COMPLETE|FULL)_SENTENCE$/i.test(String(v.generationInstruction||''))),assetReady=sourceAssetValidation(s).ok,voiceChip=hasVoice?(owner?'<span class="chip">🎙 voice generation owner</span>':'<span class="chip">🎙 voice payload</span>'):silent?'<span class="chip">◌ NO_VOICE annotated</span>':'<span class="chip">◌ không voice</span>',voiceHtml=voiceLines.length?`<div class="shot-voice"><div class="shot-block-title"><span>🎙 Text voice · sentence payload</span><span>${voiceLines.length} câu</span></div><div class="voice-lines">${voiceLines.map(line=>{const meta=[line.sentenceId||line.eventId||line.dialogueId,line.speaker,line.timing].filter(Boolean).join(' · ');return`<div class="voice-line"><div class="voice-line-meta">${esc(meta||'VOICE')}</div><div class="voice-line-text">${esc(line.text)}</div></div>`}).join('')}</div></div>`:`<div class="shot-voice"><div class="shot-block-title"><span>🎙 Text voice</span><span>0 câu</span></div><div class="shot-scene-meta">${hasVoice?'Shot có cờ voice nhưng chưa đọc được payload.':`Không có voice${isMeaningfulValue(vi.silenceReason)?` · ${esc(vi.silenceReason)}`:''}.`}</div></div>`;return`<article class="shot" data-shot="${esc(s.shotId)}"><div class="seg-top"><h3>${esc(s.shotId)}</h3><span class="chip">#${esc(s.masterEditOrderIndex)}</span></div><div class="chips"><span class="chip">${esc(s.segmentId)}</span><span class="chip">${esc(s.sceneId)}</span><span class="chip">${esc(s.beatId)}</span>${s.targetDurationSeconds?`<span class="chip">⏱ ${esc(s.targetDurationSeconds)}s</span>`:''}${fp?'<span class="chip">↪ hook carry</span>':''}${voiceChip}${voiceLines.length?`<span class="chip">${voiceLines.length} payload</span>`:''}<span class="chip">${assetReady?'📎 first frame ready':'⚠ first frame missing'}</span></div><div class="story">${esc(s.storyFunction||'Không có story_function')}</div><div class="shot-scene"><div class="shot-block-title"><span>🎞 Cảnh gì</span><span>${esc(scene.location)}</span></div><div class="shot-scene-text">${esc(scene.summary)}</div>${scene.composition?`<div class="shot-scene-meta">Khung hình: ${esc(scene.composition)}</div>`:''}</div>${voiceHtml}${sourceAssetPanelHtml(s)}${isMeaningfulValue(s.retention?.forwardPull)?`<div class="small" style="margin-top:7px">forward pull: ${esc(s.retention.forwardPull)}</div>`:''}<div class="actionrow">${voiceLines.length?'<button class="btn voice-copy" data-voice>🎙 Sao chép thoại</button>':''}<button class="btn primary" data-frame>🖼️ Prompt Source Image</button><button class="btn ${assetReady?'secondary':'warn'}" data-video>🎬 Prompt Veo 3.1</button></div><details data-frame-detail><summary>Xem prompt Source Image</summary><pre class="preview"></pre></details><details data-detail><summary>Xem prompt Veo 3.1</summary><pre class="preview"></pre></details></article>`}).join('')||(list.length===0?'<div class="notice">Không có shot phù hợp với bộ lọc hiện tại.</div>':'');
-  $('shots').querySelectorAll('.shot').forEach(card=>{const shot=bundle.shots.find(s=>s.shotId===card.dataset.shot),voiceBtn=card.querySelector('[data-voice]'),fileInput=card.querySelector('[data-source-file]');if(voiceBtn)voiceBtn.onclick=async e=>{const ok=await copyText(shotVoiceCopyText(shot));finishCopy(e.currentTarget,ok,'✓ Text voice đã copy',`✓ Đã copy ${shotVoiceLines(shot).length} voice payload · ${shot.shotId}`,card)};if(fileInput)fileInput.onchange=async e=>{try{await attachSourceImage(shot,e.currentTarget.files?.[0])}catch(err){showCopyFeedback(err?.message||'Không đọc được ảnh.',false)}};card.querySelector('[data-copy-source]')?.addEventListener('click',()=>copyAttachedSourceImage(shot));card.querySelector('[data-clear-source]')?.addEventListener('click',()=>{const asset=sourceImageAssets.get(shot.shotId);if(asset?.url)URL.revokeObjectURL(asset.url);sourceImageAssets.delete(shot.shotId);renderShots()});card.querySelector('[data-frame]').onclick=async e=>{try{const ok=await copyText(buildFramePrompt(shot));finishCopy(e.currentTarget,ok,'✓ Prompt ảnh đã copy',`✓ Đã copy prompt Source Image đầy đủ · ${shot.shotId}`,card)}catch(err){showCopyFeedback(err.message,false)}};card.querySelector('[data-video]').onclick=async e=>{try{const ok=await copyText(buildVideoPrompt(shot,true));finishCopy(e.currentTarget,ok,'✓ Prompt Veo đã copy',`✓ Đã khóa first frame và copy prompt Veo · ${shot.shotId}`,card)}catch(err){showCopyFeedback(err.message,false)}};const fd=card.querySelector('[data-frame-detail]');fd.ontoggle=()=>{if(fd.open){try{fd.querySelector('pre').textContent=buildFramePrompt(shot)}catch(err){fd.querySelector('pre').textContent=err.message}}};const d=card.querySelector('[data-detail]');d.ontoggle=()=>{if(d.open){try{d.querySelector('pre').textContent=buildVideoPrompt(shot,false)}catch(err){d.querySelector('pre').textContent=err.message}}}})
+  const list=bundle.shots.filter(shotMatchesActiveFilters),shown=list.slice(0,shotLimit),voiceShotCount=list.filter(s=>voiceBearingShot(s)).length;
+  $('shotStats').textContent=`${shown.length}/${list.length} shot · ${voiceShotCount} shot voice-bearing · Gemini Omni · total bundle ${bundle.shots.length}`;$('showMoreShots').style.display=shown.length<list.length?'inline-block':'none';
+  $('shots').innerHTML=shown.map(s=>{const fp=isMeaningfulValue(s.retention?.forwardPull)||isMeaningfulValue(s.retention?.carryToNext),voiceLines=shotVoiceLines(s),scene=shotSceneDetails(s),voiceHtml=voiceLines.length?`<div class="shot-voice"><div class="shot-block-title"><span>🎙 Text voice · sentence payload</span><span>${voiceLines.length} câu</span></div><div class="voice-lines">${voiceLines.map(line=>`<div class="voice-line"><div class="voice-line-meta">${esc([line.sentenceId||line.eventId||line.dialogueId,line.speaker,line.timing].filter(Boolean).join(' · ')||'VOICE')}</div><div class="voice-line-text">${esc(line.text)}</div></div>`).join('')}</div></div>`:'';return`<article class="shot" data-shot="${esc(s.shotId)}"><div class="shot-split-layout"><div class="shot-current"><div class="seg-top"><h3>${esc(s.shotId)}</h3><span class="chip">#${esc(s.masterEditOrderIndex)}</span></div><div class="chips"><span class="chip">${esc(s.segmentId)}</span><span class="chip">${esc(s.sceneId)}</span><span class="chip">${esc(s.beatId)}</span>${s.targetDurationSeconds?`<span class="chip">⏱ mục tiêu ${esc(s.targetDurationSeconds)}s</span>`:''}${fp?'<span class="chip">↪ hook carry</span>':''}</div><div class="story">${esc(s.storyFunction||'Không có story_function')}</div><div class="shot-scene"><div class="shot-block-title"><span>🎞 Cảnh gì</span><span>${esc(scene.location)}</span></div><div class="shot-scene-text">${esc(scene.summary)}</div>${scene.composition?`<div class="shot-scene-meta">Khung hình: ${esc(scene.composition)}</div>`:''}</div>${voiceHtml}<div class="actionrow">${voiceLines.length?'<button class="btn voice-copy" data-voice>🎙 Sao chép thoại</button>':''}<button class="btn primary" data-frame>🖼️ Prompt Source Image</button><button class="btn secondary" data-video>🎬 Copy prompt Omni</button></div><details data-frame-detail><summary>Xem prompt Source Image</summary><pre class="preview"></pre></details></div>${omniPanelHtml(s)}</div></article>`}).join('')||(list.length===0?'<div class="notice">Không có shot phù hợp với bộ lọc hiện tại.</div>':'');
+  $('shots').querySelectorAll('.shot').forEach(card=>{const shot=bundle.shots.find(s=>s.shotId===card.dataset.shot),voiceBtn=card.querySelector('[data-voice]');if(voiceBtn)voiceBtn.onclick=async event=>{const ok=await copyText(shotVoiceCopyText(shot));finishCopy(event.currentTarget,ok,'✓ Text voice đã copy',`✓ Đã copy ${shotVoiceLines(shot).length} voice payload · ${shot.shotId}`,card)};card.querySelector('[data-frame]').onclick=async event=>{try{const ok=await copyText(buildFramePrompt(shot));finishCopy(event.currentTarget,ok,'✓ Prompt ảnh đã copy',`✓ Đã copy prompt Source Image · ${shot.shotId}`,card)}catch(error){showCopyFeedback(error.message,false)}};card.querySelector('[data-video]').onclick=async event=>{const state=omniState(shot),ok=await copyText(Omni.compilePrompt(state.prompt,state.media,state.mode));finishCopy(event.currentTarget,ok,'✓ Prompt Omni đã copy',`✓ Đã copy prompt Gemini Omni · ${shot.shotId}`,card)};const detail=card.querySelector('[data-frame-detail]');detail.ontoggle=()=>{if(detail.open){try{detail.querySelector('pre').textContent=buildFramePrompt(shot)}catch(error){detail.querySelector('pre').textContent=error.message}}};bindOmniPanel(card,shot)});
 }
-function enhanceFrameSelectionUI(){const seg=currentFrameSelectionSegment(),root=$("shots");if(!root){updateFrameSelectionControls();return}root.querySelectorAll(".shot").forEach(card=>{const shotId=card.dataset.shot,belongs=!!seg&&segmentShotsInOrder(seg).some(s=>s.shotId===shotId),checked=belongs&&selectedFrameShotIds.has(shotId);card.classList.toggle("frame-selected",checked);if(!belongs)return;const top=card.querySelector(".seg-top");if(!top||top.querySelector("[data-select-frame]"))return;const actions=document.createElement("div"),label=document.createElement("label"),input=document.createElement("input"),caption=document.createElement("span"),orderChip=top.querySelector(".chip");actions.className="shot-head-actions";label.className="shot-select";label.title="Chọn shot này để sao chép cùng các Source Frame đã chọn";input.type="checkbox";input.dataset.selectFrame="";input.checked=checked;caption.textContent="Chọn";label.append(input,caption);actions.append(label);if(orderChip)actions.append(orderChip);top.append(actions);input.onchange=e=>{if(e.currentTarget.checked)selectedFrameShotIds.add(shotId);else selectedFrameShotIds.delete(shotId);card.classList.toggle("frame-selected",e.currentTarget.checked);updateFrameSelectionControls()}});updateFrameSelectionControls()}
-function renderShotsWithFrameSelection(){renderShotsVeoFixed();enhanceFrameSelectionUI()}
-renderShots=renderShotsWithFrameSelection;
-const renderShotsWithOptionalVeoSource=renderShotsWithFrameSelection;
-renderShots=function(){
-  renderShotsWithOptionalVeoSource();
-  if(!bundle)return;
-  $('shots').querySelectorAll('.shot').forEach(card=>{
-    const shot=bundle.shots.find(s=>s.shotId===card.dataset.shot),assetReady=sourceAssetValidation(shot).ok,videoBtn=card.querySelector('[data-video]');
-    const assetChip=[...card.querySelectorAll('.chips .chip')].find(el=>/first frame/i.test(el.textContent||''));
-    if(assetChip)assetChip.textContent=assetReady?'📎 I2V · first frame ready':'✎ T2V · không cần first frame';
-    if(videoBtn){
-      videoBtn.textContent=assetReady?'🎬 Prompt Veo 3.1 · I2V':'🎬 Prompt Veo 3.1 · T2V';
-      videoBtn.classList.remove('warn');videoBtn.classList.add('secondary');
-      videoBtn.onclick=async e=>{try{const ok=await copyText(buildVideoPrompt(shot,false)),mode=assetReady?'image-to-video':'text-to-video';finishCopy(e.currentTarget,ok,'✓ Prompt Veo đã copy',`✓ Đã copy prompt Veo ${mode} · ${shot.shotId}`,card)}catch(err){showCopyFeedback(err.message,false)}};
-    }
-    const layout=document.createElement('div'),current=document.createElement('div');
-    layout.className='shot-split-layout';current.className='shot-current';
-    while(card.firstChild)current.appendChild(card.firstChild);
-    layout.appendChild(current);layout.insertAdjacentHTML('beforeend',veoApiPanelHtml(shot));card.appendChild(layout);
-    bindVeoApiPanel(card,shot);
-  })
-};
+function enhanceFrameSelectionUI(){const seg=currentFrameSelectionSegment(),root=$('shots');if(!root){updateFrameSelectionControls();return}root.querySelectorAll('.shot').forEach(card=>{const shotId=card.dataset.shot,belongs=!!seg&&segmentShotsInOrder(seg).some(s=>s.shotId===shotId),checked=belongs&&selectedFrameShotIds.has(shotId);card.classList.toggle('frame-selected',checked);if(!belongs)return;const top=card.querySelector('.seg-top');if(!top||top.querySelector('[data-select-frame]'))return;const actions=document.createElement('div'),label=document.createElement('label'),input=document.createElement('input'),caption=document.createElement('span'),orderChip=top.querySelector('.chip');actions.className='shot-head-actions';label.className='shot-select';input.type='checkbox';input.dataset.selectFrame='';input.checked=checked;caption.textContent='Chọn';label.append(input,caption);actions.append(label);if(orderChip)actions.append(orderChip);top.append(actions);input.onchange=event=>{if(event.currentTarget.checked)selectedFrameShotIds.add(shotId);else selectedFrameShotIds.delete(shotId);card.classList.toggle('frame-selected',event.currentTarget.checked);updateFrameSelectionControls()}});updateFrameSelectionControls()}
+renderShots=function(){renderShotsOmni();enhanceFrameSelectionUI()};
 function updateShotSegNavButtons(){const sel=$("shotSegmentFilter"),back=$("shotSegBack"),next=$("shotSegNext");if(!sel||!back||!next)return;const id=sel.value,i=bundle?bundle.segments.findIndex(s=>s.segmentId===id):-1;back.disabled=!bundle||i<=0;next.disabled=!bundle||i<0||i>=bundle.segments.length-1}
 function moveShotSegment(delta){if(!bundle)return;const sel=$("shotSegmentFilter"),i=bundle.segments.findIndex(s=>s.segmentId===sel.value),ni=i+delta;if(i<0||ni<0||ni>=bundle.segments.length)return;const id=bundle.segments[ni].segmentId;selectedFrameShotIds.clear();sel.value=id;selectedSegmentId=id;shotLimit=60;$("downloadSegmentPrompts").disabled=false;$("copySegmentFrames").disabled=false;updateShotSegNavButtons();renderShots()}
 function syncShotSegmentFilter(){if(!bundle)return;const sel=$("shotSegmentFilter"),cur=sel.value;selectedFrameShotIds.clear();sel.innerHTML='<option value="">Tất cả phân đoạn</option>'+bundle.segments.map(s=>`<option value="${esc(s.segmentId)}">${esc(s.segmentId)} · ${esc(s.shotIds[0])}→${esc(s.shotIds.at(-1))}</option>`).join("");sel.value=selectedSegmentId||cur||"";$("downloadSegmentPrompts").disabled=!sel.value;$("copySegmentFrames").disabled=!sel.value;updateShotSegNavButtons();renderShots()}
@@ -769,15 +817,15 @@ function buildP10FinalPrompt(){const pkg=`schema_name: STUDIO_AI_PROMPT_SYSTEM_D
 function buildP11FinalPrompt(){const p10=chain.final?.p10Output||$("p10FinalOutput").value||"[MISSING_PHASE_10_FINAL_OUTPUT]";const pkg=`schema_name: STUDIO_AI_PROMPT_SYSTEM_DIRECT_SCREENPLAY\nproject_id: ${bundle.meta.projectId}\nproject_title:\nsubject:\ndescription:\nstory_mode: CREATIVE_FICTION\ntarget_phase: 7\nexecution_mode: FINAL_CONSOLIDATION\nsource_phase: 6\nsource_artifact_type: GLOBAL_FINAL_REVIEW_BUNDLE\nsource_artifact_snapshot_id:\nauthorization_token: READY_FOR_FINAL_JUDGE\ncore_artifact:\n  transfer_mode: INLINE\n  inline_content: |-\n    [PHASE_6_FINAL_CONSOLIDATION_OUTPUT]\n${indentBlock(p10,4)}\n    [/PHASE_6_FINAL_CONSOLIDATION_OUTPUT]\nuser_constraints:\n  - STUDIO_GREENLIGHT_90 chỉ được phát trong FINAL_CONSOLIDATION khi toàn bộ SEGMENT_GREENLIGHT + STATE_COMMIT chain hợp lệ và mọi applicable hard gate PASS.\n  - Hard gates: character_exact_age_verdict + absolute_shot_duration_verdict + voice_continuity_verdict + voice_event_exact_once_verdict + voice_density_profile_verdict + voice_sentence_distribution_verdict + voice_sentence_payload_integrity_verdict must PASS; score >=90 cannot override.\n  - Không Greenlight nếu sentence distribution sai owner chain, không contiguous, thiếu/lặp/sai thứ tự payload, duration >8s, canonical reconstruction mismatch hoặc filler voice for density.\n  - Retention hard gates phải PASS khi active; episodic continuation only when applicable.\n  - Character & Clarity BOTH_PASS: internal_causal_strength_verdict + audience_dramatic_clarity_verdict cùng PASS khi requirement liên quan active; source fidelity/technical logic/cognitive load Critical defect blocks Greenlight.\n  - Visual gates are conditional: faction_visual_identity_verdict + ensemble_costume_continuity_verdict + named_armor_distinctiveness_verdict PASS when their CRITICAL/HARD requirements are active.\n  - Creative novelty / motif diversity / decision topology / premise necessity / reference inference boundary gates PASS when applicable; memory UNAVAILABLE is not a novelty claim.\nproduction_context:\n  controller_mode: FINAL_CONSOLIDATION_ONLY\noptional_supporting_artifacts:\n  chain_records_inline: |-\n${indentBlock(chainRecordsText(),4)}\nbatch_control:\nsegment_control:\n  segment_manifest_id: ${bundle.meta.segmentManifestId}\n  segment_id: FINAL_CONSOLIDATION\n  segment_order_index: FINAL\n  segment_qc_ref: EMBEDDED_PHASE_10_FINAL_OUTPUT\n  prior_segment_commit_refs: ALL_ACCEPTED_SEGCOMMITS\n  is_final_segment: true`;return replacePhaseInput(PHASE_MAP[7].prompt,pkg+buildSourceContext())}
 function analyzeP10Final(){const t=$("p10FinalOutput").value;chain.final=chain.final||{};chain.final.p10Output=t;if(/\bREVISION_REQUIRED\b/i.test(t)){chain.final.p10Status="REVISION_REQUIRED"}else if(/\bREADY_FOR_FINAL_JUDGE\b/i.test(t)){chain.final.p10Status=approvalEvidenceProblems(t,10).length?"EVIDENCE_REQUIRED":"READY_FOR_FINAL_JUDGE"}else chain.final.p10Status="UNRECOGNIZED";$("p10FinalStatus").textContent=chain.final.p10Status;$("p10FinalStatus").className="resultline "+(chain.final.p10Status==="READY_FOR_FINAL_JUDGE"?"ok":chain.final.p10Status==="REVISION_REQUIRED"?"bad":"");$("copyP11Final").disabled=chain.final.p10Status!=="READY_FOR_FINAL_JUDGE";saveChain()}
 function analyzeP11Final(){const t=$("p11FinalOutput").value;chain.final=chain.final||{};chain.final.p11Output=t;if(/\bREVISION_REQUIRED\b/i.test(t)){chain.final.p11Status="REVISION_REQUIRED"}else if(/\bSTUDIO_GREENLIGHT_90\b/i.test(t)){chain.final.p11Status=approvalEvidenceProblems(t,11).length?"EVIDENCE_REQUIRED":"STUDIO_GREENLIGHT_90"}else chain.final.p11Status="UNRECOGNIZED";$("p11FinalStatus").textContent=chain.final.p11Status;$("p11FinalStatus").className="resultline "+(chain.final.p11Status==="STUDIO_GREENLIGHT_90"?"ok":chain.final.p11Status==="REVISION_REQUIRED"?"bad":"");saveChain()}
-async function handleFile(file){if(!file)return;$("errorBox").classList.remove("visible");$("filename").textContent=file.name;try{const text=await file.text();const parsed=parseBundle(text,file.name);if(!parsed.shots.length||!parsed.segments.length)throw new Error("Không tìm thấy shot và phân đoạn. Hãy nạp gói Giai đoạn 5 đã hợp nhất.");const schemaRecognition=recognizeBundleSchema(parsed);if(!schemaRecognition.supported)throw new Error(schemaRecognition.detail);parsed.sourceFingerprint=await fingerprintSource(text);clearSourceImageAssets();clearVeoVideoJobs();bundle=parsed;selectedFrameShotIds.clear();loadChain();selectedSegmentId=bundle.segments[0]?.segmentId||"";renderDashboard();renderSegmentList();renderSegmentWorkspace();syncShotSegmentFilter();updateCursorPreview();$("exportNotes").className="notice";$("frameTask").value=storageGet("studioVeo31FixedSourceFrameTask")||DEFAULT_FRAME_TASK;$("videoTask").value=storageGet("studioVeo31FixedVideoTask")||DEFAULT_VIDEO_TASK}catch(err){console.error(err);$("filename").textContent=bundle?bundle.meta.fileName:"";selectedFrameShotIds.clear();updateFrameSelectionControls();$("errorBox").textContent=err?.message||"Không đọc được file.";$("errorBox").classList.add("visible")}}
+async function handleFile(file){if(!file)return;$("errorBox").classList.remove("visible");$("filename").textContent=file.name;try{const text=await file.text();const parsed=parseBundle(text,file.name);if(!parsed.shots.length||!parsed.segments.length)throw new Error("Không tìm thấy shot và phân đoạn. Hãy nạp gói Giai đoạn 5 đã hợp nhất.");const schemaRecognition=recognizeBundleSchema(parsed);if(!schemaRecognition.supported)throw new Error(schemaRecognition.detail);parsed.sourceFingerprint=await fingerprintSource(text);clearOmniJobs();bundle=parsed;selectedFrameShotIds.clear();loadChain();selectedSegmentId=bundle.segments[0]?.segmentId||"";renderDashboard();renderSegmentList();renderSegmentWorkspace();syncShotSegmentFilter();updateCursorPreview();$("exportNotes").className="notice";$("frameTask").value=storageGet("studioOmniFixedSourceFrameTask")||DEFAULT_FRAME_TASK;$("videoTask").value=storageGet("studioOmniFixedVideoTask")||DEFAULT_VIDEO_TASK}catch(err){console.error(err);$("filename").textContent=bundle?bundle.meta.fileName:"";selectedFrameShotIds.clear();updateFrameSelectionControls();$("errorBox").textContent=err?.message||"Không đọc được file.";$("errorBox").classList.add("visible")}}
 
 // init / generic UI
-$("frameTask").value=storageGet("studioVeo31FixedSourceFrameTask")||DEFAULT_FRAME_TASK;$("videoTask").value=storageGet("studioVeo31FixedVideoTask")||DEFAULT_VIDEO_TASK;$("veoModel").value=storageGet("studioVeo31Model")||"veo-3.1-generate-001";$("veoAspectRatio").value=storageGet("studioVeo31AspectRatio")||"16:9";$("veoResolution").value=storageGet("studioVeo31Resolution")||"720p";$("veoAudioMode").value=storageGet("studioVeo31AudioMode")||"NATIVE_AUDIO";$("phaseInput").value=storageGet("studioSnapshot20260923PhaseInput")||"";$("phaseInputStats").textContent=`${$("phaseInput").value.length.toLocaleString("vi-VN")} ký tự`;renderPhases();renderShots();
+$("frameTask").value=storageGet("studioOmniFixedSourceFrameTask")||DEFAULT_FRAME_TASK;$("videoTask").value=storageGet("studioOmniFixedVideoTask")||DEFAULT_VIDEO_TASK;$("omniAspectRatio").value=storageGet("studioOmniAspectRatio")||"16:9";$("omniResolution").value=storageGet("studioOmniResolution")||"720p";$("omniTask").value=storageGet("studioOmniTask")||"auto";$("omniStore").checked=storageGet("studioOmniStore")!=="false";$("phaseInput").value=storageGet("studioSnapshot20260923PhaseInput")||"";$("phaseInputStats").textContent=`${$("phaseInput").value.length.toLocaleString("vi-VN")} ký tự`;void loadOmniConfig();renderPhases();renderShots();
 $("nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("nav").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));$("panel-"+b.dataset.tab).classList.add("active");if(b.dataset.tab==="segments"){renderSegmentList();renderSegmentWorkspace()}if(b.dataset.tab==="shots")renderShots()});
 $("fileInput").onchange=e=>handleFile(e.target.files?.[0]);["dragenter","dragover"].forEach(n=>$("dropzone").addEventListener(n,e=>{e.preventDefault();$("dropzone").classList.add("dragging")}));["dragleave","drop"].forEach(n=>$("dropzone").addEventListener(n,e=>{e.preventDefault();$("dropzone").classList.remove("dragging")}));$("dropzone").ondrop=e=>handleFile(e.dataTransfer?.files?.[0]);
 $("segSearch").oninput=renderSegmentList;$("manualUnlock").onchange=()=>{renderSegmentList();renderSegmentWorkspace()};$("transferMode").onchange=renderSegmentWorkspace;
-$("frameTask").oninput=()=>storageSet("studioVeo31FixedSourceFrameTask",$("frameTask").value);$("videoTask").oninput=()=>storageSet("studioVeo31FixedVideoTask",$("videoTask").value);$("resetTasks").onclick=()=>{$("frameTask").value=DEFAULT_FRAME_TASK;$("videoTask").value=DEFAULT_VIDEO_TASK;storageSet("studioVeo31FixedSourceFrameTask",DEFAULT_FRAME_TASK);storageSet("studioVeo31FixedVideoTask",DEFAULT_VIDEO_TASK);renderShots()};
-[["veoModel","studioVeo31Model"],["veoAspectRatio","studioVeo31AspectRatio"],["veoResolution","studioVeo31Resolution"],["veoAudioMode","studioVeo31AudioMode"]].forEach(([id,key])=>{$(id).onchange=()=>{storageSet(key,$(id).value);if(bundle)renderShots()}});
+$("frameTask").oninput=()=>storageSet("studioOmniFixedSourceFrameTask",$("frameTask").value);$("videoTask").oninput=()=>storageSet("studioOmniFixedVideoTask",$("videoTask").value);$("resetTasks").onclick=()=>{$("frameTask").value=DEFAULT_FRAME_TASK;$("videoTask").value=DEFAULT_VIDEO_TASK;storageSet("studioOmniFixedSourceFrameTask",DEFAULT_FRAME_TASK);storageSet("studioOmniFixedVideoTask",DEFAULT_VIDEO_TASK);if(bundle){for(const shot of bundle.shots){const state=omniState(shot);state.prompt=buildVideoPrompt(shot)}renderShots()}};
+[["omniAspectRatio","studioOmniAspectRatio"],["omniResolution","studioOmniResolution"],["omniTask","studioOmniTask"]].forEach(([id,key])=>{$(id).onchange=()=>{storageSet(key,$(id).value);if(bundle){for(const state of omniShotStates.values())state[id==="omniAspectRatio"?"aspectRatio":id==="omniResolution"?"resolution":"task"]=$(id).value;renderShots()}}});$("omniStore").onchange=()=>{storageSet("studioOmniStore",String($("omniStore").checked));if(bundle){for(const state of omniShotStates.values())state.store=$("omniStore").checked;renderShots()}};
 $("shotSearch").oninput=()=>{shotLimit=60;renderShots()};
 $("shotTextVoiceOnly").onchange=()=>{shotLimit=60;renderShots()};
 $("shotSegmentFilter").onchange=()=>{shotLimit=60;selectedFrameShotIds.clear();const id=$("shotSegmentFilter").value,has=!!id;if(has)selectedSegmentId=id;$("downloadSegmentPrompts").disabled=!has;$("copySegmentFrames").disabled=!has;updateShotSegNavButtons();renderShots()};

@@ -4,10 +4,10 @@ export default function ShotsPanel() {
       <div className="card panel-card">
         <div className="section-title">
           <div>
-            <h2>Quy trình cảnh quay · Source Image → Veo 3.1</h2>
+            <h2>Quy trình cảnh quay · Gemini Omni 1.1 Flash</h2>
             <p>
-              Tạo Source Image đúng trạng thái đầu, gắn ảnh vào đúng shot_id rồi
-              tạo video bằng nhắc lệnh motion-only.
+              Tạo mới, nội suy, dùng media tham chiếu, chỉnh sửa nhiều lượt và
+              mở rộng video ngay trong từng shot.
             </p>
           </div>
           <button className="btn" id="resetTasks" type="button">
@@ -24,35 +24,45 @@ export default function ShotsPanel() {
             <textarea id="videoTask" className="textarea mono" />
           </div>
         </div>
-        <div className="veo-config">
+        <div className="omni-config">
           <label>
-            Model Veo
-            <select id="veoModel" className="select" defaultValue="veo-3.1-generate-001">
-              <option value="veo-3.1-generate-001">Veo 3.1</option>
-              <option value="veo-3.1-fast-generate-001">Veo 3.1 Fast</option>
-            </select>
+            Model cố định
+            <input className="input" value="gemini-omni-1.1-flash" readOnly />
           </label>
           <label>
             Tỷ lệ ảnh và video
-            <select id="veoAspectRatio" className="select" defaultValue="16:9">
+            <select id="omniAspectRatio" className="select" defaultValue="16:9">
               <option value="16:9">16:9 · ngang</option>
               <option value="9:16">9:16 · dọc</option>
             </select>
           </label>
           <label>
             Độ phân giải video
-            <select id="veoResolution" className="select" defaultValue="720p">
-              <option value="720p">720p · 4/6/8 giây</option>
-              <option value="1080p">1080p · yêu cầu clip 8 giây</option>
+            <select id="omniResolution" className="select" defaultValue="720p">
+              <option value="360p">360p</option>
+              <option value="720p">720p</option>
+              <option value="1080p">1080p</option>
+              <option value="4k">4K</option>
             </select>
           </label>
           <label>
-            Âm thanh
-            <select id="veoAudioMode" className="select" defaultValue="NATIVE_AUDIO">
-              <option value="NATIVE_AUDIO">Veo tạo audio native</option>
-              <option value="EXTERNAL_AUDIO">Tạo hình video, ghép audio ngoài</option>
+            Task
+            <select id="omniTask" className="select" defaultValue="auto">
+              <option value="auto">Auto</option>
+              <option value="text_to_video">text_to_video</option>
+              <option value="image_to_video">image_to_video</option>
+              <option value="reference_to_video">reference_to_video</option>
+              <option value="edit">edit</option>
+              <option value="extend">extend</option>
             </select>
           </label>
+          <label className="omni-store-option">
+            <input id="omniStore" type="checkbox" defaultChecked />
+            Cho phép chỉnh sửa tiếp (lưu interaction)
+          </label>
+        </div>
+        <div className="notice omni-backend-status" id="omniBackendStatus" role="status">
+          Đang kiểm tra backend Gemini Omni…
         </div>
       </div>
 

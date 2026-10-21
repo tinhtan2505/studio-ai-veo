@@ -22,11 +22,12 @@ export default function HelpDialog({ open, onClose }) {
         <ol className="help-steps">
           <li>Nạp gói Phase 5 của bạn hoặc dùng gói mẫu.</li>
           <li>Kiểm tra dashboard, cảnh quay và từng phân đoạn.</li>
-          <li>Chạy chuỗi Giai đoạn 6 → 7 và xuất prompt VEO.</li>
+          <li>Chọn shot, tải media theo vai trò và tạo video bằng Gemini Omni.</li>
+          <li>Dùng timeline để chỉnh sửa nhiều lượt hoặc mở rộng một turn cũ.</li>
         </ol>
         <div className="notice">
-          Tệp và ảnh được xử lý trong phiên trình duyệt. Dữ liệu chỉ được gửi khi
-          bạn chủ động bấm tạo video.
+          Media chỉ được gửi tới backend local rồi Gemini khi bạn chủ động tải
+          lên. API key không được lưu trong trình duyệt.
         </div>
         <div className="shortcut-list">
           <span>Mở gói</span><kbd>Ctrl / ⌘ + O</kbd>

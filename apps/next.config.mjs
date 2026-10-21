@@ -5,8 +5,8 @@ const nextConfig = {
 
     return [
       {
-        source: "/api/veo/:path*",
-        destination: `${backendUrl}/api/veo/:path*`,
+        source: "/api/omni/:path*",
+        destination: `${backendUrl}/api/omni/:path*`,
       },
     ];
   },

@@ -1,7 +1,6 @@
 # -----------------------------------------------------------------------------
-# Canonical ignore rules for the studio-ai-veo root repository.
-# The apps directory is a separate nested Git repository and keeps its own
-# apps/.gitignore for frontend-only rules.
+# Canonical ignore rules for the Studio AI Gemini Omni repository.
+# Frontend-only rules are also mirrored by apps/.gitignore.
 # -----------------------------------------------------------------------------
 
 # IntelliJ IDEA / JetBrains
@@ -39,6 +38,9 @@
 /apps/.pnp.*
 /apps/.yarn/
 /apps/coverage/
+/apps/test-results/
+/apps/playwright-report/
+/apps/blob-report/
 /apps/.next/
 /apps/out/
 /apps/build/
@@ -53,6 +55,7 @@
 /backend/build/
 /backend/bin/
 /backend/out/
+/backend/data/
 /backend/nbproject/private/
 /backend/nbbuild/
 /backend/dist/
@@ -64,16 +67,6 @@
 !/backend/src/test/**/bin/
 !/backend/src/main/**/out/
 !/backend/src/test/**/out/
-
-# Backend Python services
-/backend/vits-service/venv/
-/backend/vits-service/.venv/
-/backend/venv/
-/backend/.cache/
-/backend/**/__pycache__/
-/backend/**/*.py[cod]
-/backend/src/main/java/nqt/base_java_spring_be/tts/python/config.py
-/backend/src/main/java/nqt/base_java_spring_be/tts/python/requirements.txt
 
 # Environment / local configuration
 .env
